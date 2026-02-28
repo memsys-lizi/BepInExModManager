@@ -11,6 +11,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // game
             game::validate_game_dir,
+            game::extract_exe_icon,
             // bepinex
             bepinex::check_bepinex_status,
             bepinex::fetch_bepinex_releases,

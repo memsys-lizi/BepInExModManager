@@ -2,10 +2,10 @@
 export interface Game {
   id: string
   name: string
-  path: string       // 游戏根目录路径
-  exeName: string    // 游戏可执行文件名
-  addedAt: number    // 时间戳
-  coverImage?: string
+  path: string
+  exeName: string
+  addedAt: number
+  iconBase64?: string   // exe 图标的 PNG base64（data:image/png;base64,...）
 }
 
 // ===== BepInEx =====
@@ -29,15 +29,20 @@ export interface BepInExRelease {
 // ===== Mod =====
 export type ModStatus = 'enabled' | 'disabled'
 
+export interface DllInfo {
+  name: string
+  fileName: string
+  filePath: string
+  status: ModStatus
+}
+
 export interface ModInfo {
   id: string
   name: string
-  fileName: string   // .dll 文件名
-  filePath: string   // 完整路径
+  modPath: string    // 文件夹路径（或散装 dll 路径）
+  isFolder: boolean
   status: ModStatus
-  version?: string
-  description?: string
-  author?: string
+  dlls: DllInfo[]
   gameId: string
 }
 

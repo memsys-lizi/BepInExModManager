@@ -23,3 +23,5 @@ tokio      = { version = "1", features = ["full"] }
 reqwest    = { version = "0.12", features = ["json", "stream"] }
 zip        = "2"
 futures-util = "0.3"
+image = { version = "0.25.9", default-features = false, features = ["png", "ico"] }
+base64 = "0.22.1"

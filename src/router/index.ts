@@ -19,9 +19,9 @@ const router = createRouter({
       component: () => import('@/pages/BepInExPage.vue'),
     },
     {
-      path: '/game/:id/mod/:modId/config',
-      name: 'mod-config',
-      component: () => import('@/pages/ModConfigPage.vue'),
+      path: '/game/:id/config',
+      name: 'game-config',
+      component: () => import('@/pages/GameConfigPage.vue'),
     },
     {
       path: '/settings',

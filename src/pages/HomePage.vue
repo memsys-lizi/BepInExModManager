@@ -8,7 +8,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import { FileCog, Gamepad2, Trash2, FolderOpen } from 'lucide-vue-next'
 import { open } from '@tauri-apps/plugin-dialog'
-import { validateGameDir } from '@/api'
+import { validateGameDir, extractExeIcon } from '@/api'
 import type { Game } from '@/types'
 
 const router = useRouter()
@@ -55,12 +55,21 @@ async function pickExe() {
 
 async function addGame() {
   if (!newGame.value.path) return
+
+  // 尝试从 exe 提取图标（失败不影响添加）
+  let iconBase64: string | undefined
+  if (newGame.value.exeName) {
+    const exeFull = `${newGame.value.path}\\${newGame.value.exeName}`
+    iconBase64 = await extractExeIcon(exeFull).catch(() => undefined)
+  }
+
   const game: Game = {
     id: Date.now().toString(),
     name: newGame.value.name || newGame.value.path,
     path: newGame.value.path,
     exeName: newGame.value.exeName,
     addedAt: Date.now(),
+    iconBase64,
   }
   gameStore.addGame(game)
   gameStore.setActiveGame(game.id)
@@ -114,7 +123,13 @@ function doDeleteGame() {
           @click="navigateToGame(game)"
         >
           <div class="game-card__header">
-            <Gamepad2 :size="20" class="game-card__icon" />
+            <img
+              v-if="game.iconBase64"
+              :src="game.iconBase64"
+              class="game-card__icon-img"
+              alt=""
+            />
+            <Gamepad2 v-else :size="20" class="game-card__icon" />
             <button
               class="game-card__del"
               title="移除游戏"
@@ -251,6 +266,7 @@ function doDeleteGame() {
   justify-content: space-between;
 }
 .game-card__icon { color: var(--color-text-muted); }
+.game-card__icon-img { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; }
 .game-card__del {
   display: flex;
   align-items: center;

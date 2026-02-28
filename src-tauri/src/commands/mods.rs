@@ -1,16 +1,31 @@
 use std::path::{Path, PathBuf};
 use serde::Serialize;
 
+// ── 数据结构 ──────────────────────────────────────────────────
+
+/// plugins 目录下每个 dll 文件的信息
+#[derive(Serialize, Clone)]
+pub struct DllEntry {
+    pub name: String,       // 文件名（不含 .disabled）
+    pub file_name: String,  // 实际文件名
+    pub file_path: String,  // 完整路径
+    pub status: String,     // "enabled" | "disabled"
+}
+
+/// 一个 Mod 条目（对应一个文件夹，或根目录散装 dll）
 #[derive(Serialize, Clone)]
 pub struct ModEntry {
     pub id: String,
     pub name: String,
-    pub file_name: String,
-    pub file_path: String,
-    pub status: String, // "enabled" | "disabled"
+    pub mod_path: String,       // 文件夹路径（散装 dll 时为文件路径）
+    pub is_folder: bool,        // true=文件夹 Mod，false=散装 dll
+    pub status: String,         // "enabled" | "disabled"（文件夹：全部 dll 都禁用才算禁用）
+    pub dlls: Vec<DllEntry>,    // 包含的 dll 列表
 }
 
-/// 扫描游戏 BepInEx/plugins 目录，返回所有 Mod
+// ── 扫描 ──────────────────────────────────────────────────────
+
+/// 扫描 BepInEx/plugins，返回 Mod 列表（文件夹优先，兼容散装 dll）
 #[tauri::command]
 pub fn scan_mods(game_path: String) -> Vec<ModEntry> {
     let plugins_dir = PathBuf::from(&game_path)
@@ -21,92 +36,176 @@ pub fn scan_mods(game_path: String) -> Vec<ModEntry> {
         return vec![];
     }
 
-    collect_mods(&plugins_dir)
-}
-
-fn collect_mods(dir: &Path) -> Vec<ModEntry> {
-    let mut result = Vec::new();
-
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return result;
+    let Ok(entries) = std::fs::read_dir(&plugins_dir) else {
+        return vec![];
     };
+
+    let mut mods = Vec::new();
 
     for entry in entries.filter_map(|e| e.ok()) {
         let path = entry.path();
 
         if path.is_dir() {
-            // 递归子目录
-            result.extend(collect_mods(&path));
-            continue;
-        }
-
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-        // .dll → 启用；.dll.disabled → 禁用
-        let (status, real_name) = if ext == "dll" {
-            ("enabled", path.file_stem().unwrap_or_default().to_string_lossy().into_owned())
-        } else if path.to_string_lossy().ends_with(".dll.disabled") {
-            let stem = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .trim_end_matches(".disabled")
-                .trim_end_matches(".dll")
-                .to_owned();
-            ("disabled", stem)
+            // 文件夹 = 一个 Mod
+            if let Some(m) = scan_folder_mod(&path) {
+                mods.push(m);
+            }
         } else {
-            continue;
-        };
+            // 根目录的散装 dll
+            if let Some(dll) = parse_dll_entry(&path) {
+                let id = hash_str(&dll.file_path);
+                let status = dll.status.clone();
+                mods.push(ModEntry {
+                    id,
+                    name: dll.name.clone(),
+                    mod_path: dll.file_path.clone(),
+                    is_folder: false,
+                    status,
+                    dlls: vec![dll],
+                });
+            }
+        }
+    }
 
-        let file_path = path.to_string_lossy().into_owned();
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-        let id = format!("{:x}", md5_str(&file_path));
+    mods
+}
 
-        result.push(ModEntry {
-            id,
-            name: real_name,
+/// 扫描一个文件夹，生成文件夹级 Mod
+fn scan_folder_mod(dir: &Path) -> Option<ModEntry> {
+    let folder_name = dir.file_name()?.to_string_lossy().into_owned();
+
+    // 文件夹名不以 .disabled 结尾 → 正常；以 .disabled 结尾 → 整体禁用
+    let (mod_name, folder_disabled) = if folder_name.ends_with(".disabled") {
+        (
+            folder_name.trim_end_matches(".disabled").to_string(),
+            true,
+        )
+    } else {
+        (folder_name.clone(), false)
+    };
+
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return None;
+    };
+
+    let mut dlls: Vec<DllEntry> = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(dll) = parse_dll_entry(&path) {
+                dlls.push(dll);
+            }
+        }
+    }
+
+    // 文件夹为 Mod，即使没有 dll 也显示（用户可能放了其他资源）
+    let status = if folder_disabled {
+        "disabled"
+    } else if dlls.iter().all(|d| d.status == "disabled") && !dlls.is_empty() {
+        "disabled"
+    } else {
+        "enabled"
+    };
+
+    Some(ModEntry {
+        id: hash_str(&dir.to_string_lossy()),
+        name: mod_name,
+        mod_path: dir.to_string_lossy().into_owned(),
+        is_folder: true,
+        status: status.into(),
+        dlls,
+    })
+}
+
+/// 解析单个 dll 或 dll.disabled 文件
+fn parse_dll_entry(path: &Path) -> Option<DllEntry> {
+    let file_name = path.file_name()?.to_string_lossy().into_owned();
+    let path_str = path.to_string_lossy().into_owned();
+
+    if file_name.ends_with(".dll.disabled") {
+        let name = file_name
+            .trim_end_matches(".disabled")
+            .trim_end_matches(".dll")
+            .to_string();
+        return Some(DllEntry {
+            name,
             file_name,
-            file_path,
-            status: status.into(),
+            file_path: path_str,
+            status: "disabled".into(),
         });
     }
 
-    result
-}
-
-/// 启用 Mod：将 .dll.disabled → .dll
-#[tauri::command]
-pub fn enable_mod(file_path: String) -> Result<String, String> {
-    let path = PathBuf::from(&file_path);
-    if !path.exists() {
-        return Err("文件不存在".into());
+    if file_name.ends_with(".dll") {
+        let name = file_name.trim_end_matches(".dll").to_string();
+        return Some(DllEntry {
+            name,
+            file_name,
+            file_path: path_str,
+            status: "enabled".into(),
+        });
     }
 
-    let new_path = PathBuf::from(file_path.trim_end_matches(".disabled"));
-    std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
-    Ok(new_path.to_string_lossy().into_owned())
+    None
 }
 
-/// 禁用 Mod：将 .dll → .dll.disabled
+// ── 启用 / 禁用（文件夹粒度） ─────────────────────────────────
+
+/// 启用 Mod：
+///   - 文件夹型：若文件夹名含 .disabled 则重命名文件夹；否则对所有 dll.disabled 重命名
+///   - 散装 dll：将 .dll.disabled → .dll
 #[tauri::command]
-pub fn disable_mod(file_path: String) -> Result<String, String> {
-    let path = PathBuf::from(&file_path);
-    if !path.exists() {
-        return Err("文件不存在".into());
+pub fn enable_mod(mod_path: String, is_folder: bool) -> Result<String, String> {
+    let path = PathBuf::from(&mod_path);
+
+    if is_folder {
+        // 如果文件夹名带 .disabled，重命名文件夹
+        let path_str = path.to_string_lossy();
+        if path_str.ends_with(".disabled") {
+            let new_path = PathBuf::from(path_str.trim_end_matches(".disabled").to_string());
+            std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+            return Ok(new_path.to_string_lossy().into_owned());
+        }
+        // 否则逐一启用内部 dll
+        enable_dlls_in_dir(&path)?;
+        Ok(mod_path)
+    } else {
+        // 散装 dll
+        let new_path = PathBuf::from(mod_path.trim_end_matches(".disabled"));
+        std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+        Ok(new_path.to_string_lossy().into_owned())
     }
-
-    let new_path = PathBuf::from(format!("{}.disabled", file_path));
-    std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
-    Ok(new_path.to_string_lossy().into_owned())
 }
 
-/// 删除 Mod 文件
+/// 禁用 Mod：
+///   - 文件夹型：重命名文件夹为 xxx.disabled（更简洁，一次操作）
+///   - 散装 dll：将 .dll → .dll.disabled
 #[tauri::command]
-pub fn delete_mod(file_path: String) -> Result<(), String> {
-    std::fs::remove_file(&file_path).map_err(|e| e.to_string())
+pub fn disable_mod(mod_path: String, is_folder: bool) -> Result<String, String> {
+    let path = PathBuf::from(&mod_path);
+
+    if is_folder {
+        let new_path = PathBuf::from(format!("{}.disabled", mod_path));
+        std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+        Ok(new_path.to_string_lossy().into_owned())
+    } else {
+        let new_path = PathBuf::from(format!("{}.disabled", mod_path));
+        std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+        Ok(new_path.to_string_lossy().into_owned())
+    }
 }
 
-/// 打开 plugins 文件夹（通过 shell）
+/// 删除 Mod：文件夹 → remove_dir_all；散装 dll → remove_file
+#[tauri::command]
+pub fn delete_mod(mod_path: String, is_folder: bool) -> Result<(), String> {
+    let path = PathBuf::from(&mod_path);
+    if is_folder {
+        std::fs::remove_dir_all(&path).map_err(|e| e.to_string())
+    } else {
+        std::fs::remove_file(&path).map_err(|e| e.to_string())
+    }
+}
+
+/// 打开 plugins 文件夹
 #[tauri::command]
 pub fn open_plugins_dir(game_path: String) -> Result<(), String> {
     let dir = PathBuf::from(&game_path).join("BepInEx").join("plugins");
@@ -115,17 +214,35 @@ pub fn open_plugins_dir(game_path: String) -> Result<(), String> {
     }
     #[cfg(target_os = "windows")]
     std::process::Command::new("explorer")
-        .arg(dir)
+        .arg(&dir)
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
-// 简单的字符串哈希，不依赖 md5 crate
-fn md5_str(s: &str) -> u64 {
+// ── 辅助 ─────────────────────────────────────────────────────
+
+fn enable_dlls_in_dir(dir: &Path) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(dir) else { return Ok(()); };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_file() {
+            let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            if name.ends_with(".dll.disabled") {
+                let new_path = PathBuf::from(
+                    path.to_string_lossy().trim_end_matches(".disabled").to_string()
+                );
+                std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn hash_str(s: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut h = DefaultHasher::new();
     s.hash(&mut h);
-    h.finish()
+    format!("{:x}", h.finish())
 }

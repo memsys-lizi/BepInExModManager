@@ -4,7 +4,6 @@ import type { ModInfo } from '@/types'
 
 export const useModStore = defineStore('mod', () => {
   const mods = ref<ModInfo[]>([])
-  const loading = ref(false)
 
   function getModsByGame(gameId: string) {
     return computed(() => mods.value.filter(m => m.gameId === gameId))
@@ -17,16 +16,14 @@ export const useModStore = defineStore('mod', () => {
     ]
   }
 
-  function toggleMod(modId: string) {
+  function updateMod(modId: string, patch: Partial<ModInfo>) {
     const mod = mods.value.find(m => m.id === modId)
-    if (mod) {
-      mod.status = mod.status === 'enabled' ? 'disabled' : 'enabled'
-    }
+    if (mod) Object.assign(mod, patch)
   }
 
   function removeMod(modId: string) {
     mods.value = mods.value.filter(m => m.id !== modId)
   }
 
-  return { mods, loading, getModsByGame, setMods, toggleMod, removeMod }
+  return { mods, getModsByGame, setMods, updateMod, removeMod }
 })

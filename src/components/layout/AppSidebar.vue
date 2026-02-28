@@ -38,7 +38,13 @@ const isSettingsPage = () => route.name === 'settings'
         :class="{ 'sidebar__item--active': isGameActive(game.id) }"
         @click="goToGame(game.id)"
       >
-        <Gamepad2 :size="14" class="sidebar__icon" />
+        <img
+          v-if="game.iconBase64"
+          :src="game.iconBase64"
+          class="sidebar__icon-img"
+          alt=""
+        />
+        <Gamepad2 v-else :size="14" class="sidebar__icon" />
         <span class="truncate">{{ game.name }}</span>
       </button>
 
@@ -133,7 +139,8 @@ const isSettingsPage = () => route.name === 'settings'
   color: var(--color-text-primary);
 }
 
-.sidebar__icon { flex-shrink: 0; }
+.sidebar__icon { flex-shrink: 0; color: var(--color-text-muted); }
+.sidebar__icon-img { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; border-radius: 2px; }
 
 .sidebar__empty {
   padding: var(--space-3) var(--space-2);

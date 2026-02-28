@@ -1,29 +1,45 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
 import { ChevronRight } from 'lucide-vue-next'
 
 const route = useRoute()
+const router = useRouter()
 const gameStore = useGameStore()
 
-const breadcrumbs = computed(() => {
-  const crumbs: { label: string; name?: string; params?: Record<string, string> }[] = []
+interface Crumb {
+  label: string
+  to?: { name: string; params?: Record<string, string> }
+}
+
+const breadcrumbs = computed((): Crumb[] => {
+  const crumbs: Crumb[] = []
   const name = route.name as string
-  const game = gameStore.games.find(g => g.id === route.params.id)
+  const game = gameStore.games.find(g => g.id === (route.params.id as string))
 
   if (name === 'home') {
     crumbs.push({ label: '首页' })
   } else if (name === 'settings') {
     crumbs.push({ label: '设置' })
   } else if (game) {
-    crumbs.push({ label: game.name, name: 'game-detail', params: { id: game.id } })
-    if (name === 'bepinex-installer') crumbs.push({ label: 'BepInEx' })
-    if (name === 'mod-config') crumbs.push({ label: 'Mod 配置' })
+    crumbs.push({
+      label: game.name,
+      to: { name: 'game-detail', params: { id: game.id } },
+    })
+    if (name === 'bepinex-installer') {
+      crumbs.push({ label: 'BepInEx' })
+    } else if (name === 'game-config') {
+      crumbs.push({ label: '配置文件' })
+    }
   }
 
   return crumbs
 })
+
+function navigate(crumb: Crumb) {
+  if (crumb.to) router.push(crumb.to)
+}
 </script>
 
 <template>
@@ -33,7 +49,11 @@ const breadcrumbs = computed(() => {
         <ChevronRight v-if="i > 0" :size="12" class="topbar__sep" />
         <span
           class="topbar__crumb"
-          :class="{ 'topbar__crumb--last': i === breadcrumbs.length - 1 }"
+          :class="{
+            'topbar__crumb--last': i === breadcrumbs.length - 1,
+            'topbar__crumb--link': !!crumb.to,
+          }"
+          @click="navigate(crumb)"
         >{{ crumb.label }}</span>
       </template>
     </nav>
@@ -69,6 +89,17 @@ const breadcrumbs = computed(() => {
 .topbar__crumb {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+.topbar__crumb--link {
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.topbar__crumb--link:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
 }
 
 .topbar__crumb--last {

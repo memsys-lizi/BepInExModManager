@@ -2,6 +2,10 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
 // ===== Game =====
+export function extractExeIcon(exePath: string): Promise<string> {
+  return invoke('extract_exe_icon', { exePath })
+}
+
 export interface GameValidation {
   valid: boolean
   has_data_folder: boolean
@@ -79,28 +83,36 @@ export function uninstallBepInEx(gamePath: string): Promise<void> {
 }
 
 // ===== Mods =====
-export interface ModEntryRaw {
-  id: string
+export interface DllEntryRaw {
   name: string
   file_name: string
   file_path: string
   status: 'enabled' | 'disabled'
 }
 
+export interface ModEntryRaw {
+  id: string
+  name: string
+  mod_path: string
+  is_folder: boolean
+  status: 'enabled' | 'disabled'
+  dlls: DllEntryRaw[]
+}
+
 export function scanMods(gamePath: string): Promise<ModEntryRaw[]> {
   return invoke('scan_mods', { gamePath })
 }
 
-export function enableMod(filePath: string): Promise<string> {
-  return invoke('enable_mod', { filePath })
+export function enableMod(modPath: string, isFolder: boolean): Promise<string> {
+  return invoke('enable_mod', { modPath, isFolder })
 }
 
-export function disableMod(filePath: string): Promise<string> {
-  return invoke('disable_mod', { filePath })
+export function disableMod(modPath: string, isFolder: boolean): Promise<string> {
+  return invoke('disable_mod', { modPath, isFolder })
 }
 
-export function deleteMod(filePath: string): Promise<void> {
-  return invoke('delete_mod', { filePath })
+export function deleteMod(modPath: string, isFolder: boolean): Promise<void> {
+  return invoke('delete_mod', { modPath, isFolder })
 }
 
 export function openPluginsDir(gamePath: string): Promise<void> {
