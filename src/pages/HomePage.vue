@@ -128,6 +128,7 @@ function doDeleteGame() {
               :src="game.iconBase64"
               class="game-card__icon-img"
               alt=""
+              draggable="false"
             />
             <Gamepad2 v-else :size="20" class="game-card__icon" />
             <button
@@ -254,7 +255,6 @@ function doDeleteGame() {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  cursor: pointer;
   text-align: left;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
@@ -275,7 +275,6 @@ function doDeleteGame() {
   color: var(--color-text-muted);
   opacity: 0;
   transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
-  cursor: pointer;
 }
 .game-card:hover .game-card__del { opacity: 1; }
 .game-card__del:hover { background: var(--color-danger-bg); color: var(--color-danger); }

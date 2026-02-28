@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 const model = defineModel<boolean>()
 
 defineProps<{
@@ -29,7 +29,6 @@ defineProps<{
   background: var(--color-border-2) !important;
   border: 1px solid var(--color-border-2) !important;
   transition: background var(--transition-fast), border-color var(--transition-fast);
-  cursor: pointer;
   flex-shrink: 0;
   padding: 0;
 }

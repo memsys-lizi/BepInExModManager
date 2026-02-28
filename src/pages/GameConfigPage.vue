@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
@@ -241,7 +241,7 @@ onMounted(loadCfgList)
   font-size: var(--text-sm);
   flex-shrink: 0;
 }
-.error-bar__close { margin-left: auto; cursor: pointer; font-size: var(--text-md); color: inherit; }
+.error-bar__close { margin-left: auto; font-size: var(--text-md); color: inherit; }
 
 .save-indicator {
   display: flex;
@@ -285,7 +285,6 @@ onMounted(loadCfgList)
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  cursor: pointer;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   transition: background var(--transition-fast), color var(--transition-fast);
@@ -394,7 +393,6 @@ onMounted(loadCfgList)
   border-color: var(--color-border-2);
 }
 .config-ctrl--select {
-  cursor: pointer;
 }
 
 .spin { animation: spin 1s linear infinite; }

@@ -145,7 +145,7 @@ p {
 
 /* ===== Interactive base ===== */
 button {
-  cursor: pointer;
+  cursor: default;
   font-family: inherit;
   font-size: var(--text-base);
   border: none;
@@ -168,6 +168,12 @@ input, select, textarea {
   border-radius: var(--radius-sm);
   outline: none;
   transition: border-color var(--transition-fast);
+  cursor: default;
+}
+
+input, textarea {
+  cursor: text;
+  user-select: text;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -177,6 +183,12 @@ input:focus, select:focus, textarea:focus {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  draggable: false;
 }
 
 /* ===== Utility classes ===== */

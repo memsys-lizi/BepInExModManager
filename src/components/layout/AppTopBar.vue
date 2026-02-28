@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
@@ -96,7 +96,6 @@ function navigate(crumb: Crumb) {
 }
 
 .topbar__crumb--link {
-  cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
 }
 .topbar__crumb--link:hover {

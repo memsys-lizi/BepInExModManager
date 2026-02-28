@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Minus, Square, X, PackageOpen } from 'lucide-vue-next'
@@ -106,7 +106,6 @@ async function close() { await appWindow.close() }
   color: var(--color-titlebar-text);
   border-radius: 0;
   transition: background var(--transition-fast), color var(--transition-fast);
-  cursor: pointer;
   flex-shrink: 0;
 }
 

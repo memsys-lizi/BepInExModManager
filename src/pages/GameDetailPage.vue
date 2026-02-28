@@ -162,12 +162,16 @@ onMounted(refresh)
       <!-- BepInEx status bar -->
       <div class="bep-bar">
         <div class="bep-bar__info">
-          <PackageOpen :size="14" />
-          <span class="text-sm">BepInEx</span>
-          <BaseBadge v-if="bepInstalled" variant="success">
-            {{ t.home.bepInstalled }}{{ bepVersion ? ' · ' + bepVersion : '' }}
-          </BaseBadge>
-          <BaseBadge v-else variant="danger">{{ t.home.bepNotInstalled }}</BaseBadge>
+          <PackageOpen :size="14" class="bep-bar__icon" />
+          <span class="bep-bar__name">BepInEx</span>
+          <span v-if="bepInstalled" class="bep-bar__status bep-bar__status--ok">
+            <span class="bep-bar__dot" />
+            {{ bepVersion || t.home.bepInstalled }}
+          </span>
+          <span v-else class="bep-bar__status bep-bar__status--err">
+            <span class="bep-bar__dot" />
+            {{ t.home.bepNotInstalled }}
+          </span>
         </div>
         <div class="bep-bar__actions">
           <BaseButton
@@ -329,7 +333,7 @@ onMounted(refresh)
   font-size: var(--text-sm);
   flex-shrink: 0;
 }
-.error-bar__close { margin-left: auto; color: inherit; font-size: var(--text-md); cursor: pointer; }
+.error-bar__close { margin-left: auto; color: inherit; font-size: var(--text-md); }
 
 /* BepInEx bar */
 .bep-bar {
@@ -341,7 +345,34 @@ onMounted(refresh)
   background: var(--color-surface);
   flex-shrink: 0;
 }
-.bep-bar__info    { display: flex; align-items: center; gap: var(--space-2); }
+.bep-bar__info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bep-bar__icon { color: var(--color-text-muted); flex-shrink: 0; }
+.bep-bar__name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.bep-bar__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.bep-bar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bep-bar__status--ok  .bep-bar__dot { background: var(--color-success); }
+.bep-bar__status--ok  { color: var(--color-text-secondary); }
+.bep-bar__status--err .bep-bar__dot { background: var(--color-danger); }
+.bep-bar__status--err { color: var(--color-danger); }
 .bep-bar__actions { display: flex; gap: var(--space-2); }
 
 /* List header */
@@ -394,7 +425,6 @@ onMounted(refresh)
   width: 18px;
   height: 18px;
   color: var(--color-text-muted);
-  cursor: pointer;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
@@ -420,7 +450,6 @@ onMounted(refresh)
   padding: 4px;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .icon-btn:hover { background: var(--color-surface-2); color: var(--color-text-primary); }

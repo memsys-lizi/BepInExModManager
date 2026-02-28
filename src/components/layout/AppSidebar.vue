@@ -59,6 +59,7 @@ const isSettingsPage = () => route.name === 'settings'
           :src="game.iconBase64"
           class="sidebar__icon-img"
           alt=""
+          draggable="false"
         />
         <Gamepad2 v-else :size="14" class="sidebar__icon" />
         <span class="truncate">{{ game.name }}</span>
@@ -110,7 +111,6 @@ const isSettingsPage = () => route.name === 'settings'
   background: transparent;
   border: none;
   text-align: left;
-  cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
   flex-shrink: 0;
 }
@@ -174,7 +174,6 @@ const isSettingsPage = () => route.name === 'settings'
   color: var(--color-text-secondary);
   text-align: left;
   transition: background var(--transition-fast), color var(--transition-fast);
-  cursor: pointer;
   background: transparent;
   border: none;
 }

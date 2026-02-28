@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
@@ -298,7 +298,7 @@ onMounted(async () => {
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-4);
 }
-.error-bar__close { margin-left: auto; cursor: pointer; font-size: var(--text-md); color: inherit; }
+.error-bar__close { margin-left: auto; font-size: var(--text-md); color: inherit; }
 
 /* 左右双栏布局 */
 .two-col {
@@ -419,7 +419,6 @@ onMounted(async () => {
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  cursor: pointer;
   transition: border-color var(--transition-fast), background var(--transition-fast);
   text-align: left;
 }

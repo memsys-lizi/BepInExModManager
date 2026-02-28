@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 defineProps<{
   variant?: 'primary' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
@@ -30,7 +30,6 @@ defineProps<{
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  cursor: pointer;
   white-space: nowrap;
 }
 

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ChevronDown, Check } from 'lucide-vue-next'
 
@@ -78,7 +78,6 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
-  cursor: pointer;
   transition: border-color var(--transition-fast), background var(--transition-fast),
               color var(--transition-fast);
   white-space: nowrap;
@@ -123,7 +122,6 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   background: transparent;
-  cursor: pointer;
   text-align: left;
   transition: background var(--transition-fast), color var(--transition-fast);
   white-space: nowrap;
