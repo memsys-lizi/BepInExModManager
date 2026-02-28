@@ -86,10 +86,19 @@ async function toggleMod(mod: ModInfo) {
   try {
     if (mod.status === 'enabled') {
       const newPath = await disableMod(mod.modPath, mod.isFolder)
-      modStore.updateMod(mod.id, { status: 'disabled', modPath: newPath })
+      modStore.updateMod(mod.id, {
+        status: 'disabled',
+        // 散装 dll 路径会变（加了 .disabled），文件夹路径不变
+        modPath: mod.isFolder ? mod.modPath : newPath,
+        dlls: mod.dlls.map(d => ({ ...d, status: 'disabled' as const })),
+      })
     } else {
       const newPath = await enableMod(mod.modPath, mod.isFolder)
-      modStore.updateMod(mod.id, { status: 'enabled', modPath: newPath })
+      modStore.updateMod(mod.id, {
+        status: 'enabled',
+        modPath: mod.isFolder ? mod.modPath : newPath,
+        dlls: mod.dlls.map(d => ({ ...d, status: 'enabled' as const })),
+      })
     }
   } catch (e: any) {
     error.value = String(e)

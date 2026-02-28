@@ -74,16 +74,6 @@ pub fn scan_mods(game_path: String) -> Vec<ModEntry> {
 fn scan_folder_mod(dir: &Path) -> Option<ModEntry> {
     let folder_name = dir.file_name()?.to_string_lossy().into_owned();
 
-    // 文件夹名不以 .disabled 结尾 → 正常；以 .disabled 结尾 → 整体禁用
-    let (mod_name, folder_disabled) = if folder_name.ends_with(".disabled") {
-        (
-            folder_name.trim_end_matches(".disabled").to_string(),
-            true,
-        )
-    } else {
-        (folder_name.clone(), false)
-    };
-
     let Ok(entries) = std::fs::read_dir(dir) else {
         return None;
     };
@@ -98,10 +88,8 @@ fn scan_folder_mod(dir: &Path) -> Option<ModEntry> {
         }
     }
 
-    // 文件夹为 Mod，即使没有 dll 也显示（用户可能放了其他资源）
-    let status = if folder_disabled {
-        "disabled"
-    } else if dlls.iter().all(|d| d.status == "disabled") && !dlls.is_empty() {
+    // Mod 状态：所有 dll 都禁用 → disabled，否则 → enabled
+    let status = if !dlls.is_empty() && dlls.iter().all(|d| d.status == "disabled") {
         "disabled"
     } else {
         "enabled"
@@ -109,7 +97,7 @@ fn scan_folder_mod(dir: &Path) -> Option<ModEntry> {
 
     Some(ModEntry {
         id: hash_str(&dir.to_string_lossy()),
-        name: mod_name,
+        name: folder_name,
         mod_path: dir.to_string_lossy().into_owned(),
         is_folder: true,
         status: status.into(),
@@ -151,25 +139,16 @@ fn parse_dll_entry(path: &Path) -> Option<DllEntry> {
 // ── 启用 / 禁用（文件夹粒度） ─────────────────────────────────
 
 /// 启用 Mod：
-///   - 文件夹型：若文件夹名含 .disabled 则重命名文件夹；否则对所有 dll.disabled 重命名
+///   - 文件夹型：对文件夹内所有 .dll.disabled 重命名为 .dll，文件夹本身不动
 ///   - 散装 dll：将 .dll.disabled → .dll
 #[tauri::command]
 pub fn enable_mod(mod_path: String, is_folder: bool) -> Result<String, String> {
     let path = PathBuf::from(&mod_path);
 
     if is_folder {
-        // 如果文件夹名带 .disabled，重命名文件夹
-        let path_str = path.to_string_lossy();
-        if path_str.ends_with(".disabled") {
-            let new_path = PathBuf::from(path_str.trim_end_matches(".disabled").to_string());
-            std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
-            return Ok(new_path.to_string_lossy().into_owned());
-        }
-        // 否则逐一启用内部 dll
-        enable_dlls_in_dir(&path)?;
+        toggle_dlls_in_dir(&path, true)?;
         Ok(mod_path)
     } else {
-        // 散装 dll
         let new_path = PathBuf::from(mod_path.trim_end_matches(".disabled"));
         std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
         Ok(new_path.to_string_lossy().into_owned())
@@ -177,16 +156,15 @@ pub fn enable_mod(mod_path: String, is_folder: bool) -> Result<String, String> {
 }
 
 /// 禁用 Mod：
-///   - 文件夹型：重命名文件夹为 xxx.disabled（更简洁，一次操作）
+///   - 文件夹型：对文件夹内所有 .dll 重命名为 .dll.disabled，文件夹本身不动
 ///   - 散装 dll：将 .dll → .dll.disabled
 #[tauri::command]
 pub fn disable_mod(mod_path: String, is_folder: bool) -> Result<String, String> {
     let path = PathBuf::from(&mod_path);
 
     if is_folder {
-        let new_path = PathBuf::from(format!("{}.disabled", mod_path));
-        std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
-        Ok(new_path.to_string_lossy().into_owned())
+        toggle_dlls_in_dir(&path, false)?;
+        Ok(mod_path)
     } else {
         let new_path = PathBuf::from(format!("{}.disabled", mod_path));
         std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
@@ -222,18 +200,23 @@ pub fn open_plugins_dir(game_path: String) -> Result<(), String> {
 
 // ── 辅助 ─────────────────────────────────────────────────────
 
-fn enable_dlls_in_dir(dir: &Path) -> Result<(), String> {
+/// enable=true：把文件夹内 .dll.disabled → .dll
+/// enable=false：把文件夹内 .dll → .dll.disabled
+fn toggle_dlls_in_dir(dir: &Path, enable: bool) -> Result<(), String> {
     let Ok(entries) = std::fs::read_dir(dir) else { return Ok(()); };
     for entry in entries.filter_map(|e| e.ok()) {
         let path = entry.path();
-        if path.is_file() {
-            let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-            if name.ends_with(".dll.disabled") {
-                let new_path = PathBuf::from(
-                    path.to_string_lossy().trim_end_matches(".disabled").to_string()
-                );
-                std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
-            }
+        if !path.is_file() { continue; }
+        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+
+        if enable && name.ends_with(".dll.disabled") {
+            let new_path = PathBuf::from(
+                path.to_string_lossy().trim_end_matches(".disabled").to_string()
+            );
+            std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
+        } else if !enable && name.ends_with(".dll") {
+            let new_path = PathBuf::from(format!("{}.disabled", path.to_string_lossy()));
+            std::fs::rename(&path, &new_path).map_err(|e| e.to_string())?;
         }
     }
     Ok(())
