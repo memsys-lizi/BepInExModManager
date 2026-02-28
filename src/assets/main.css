@@ -1,0 +1,206 @@
+/* ===== Design Tokens - Dark (default) ===== */
+:root {
+  /* Colors - Monochrome dark palette */
+  --color-bg:          #141414;
+  --color-surface:     #1e1e1e;
+  --color-surface-2:   #252525;
+  --color-border:      #2e2e2e;
+  --color-border-2:    #3a3a3a;
+
+  --color-text-primary:   #f0f0f0;
+  --color-text-secondary: #9a9a9a;
+  --color-text-muted:     #5a5a5a;
+
+  --color-accent:      #e0e0e0;
+  --color-accent-dim:  #3a3a3a;
+
+  /* Danger / Status */
+  --color-danger:      #e05555;
+  --color-success:     #55a855;
+  --color-warning:     #c0943a;
+
+  /* Titlebar */
+  --color-titlebar-bg:     #0f0f0f;
+  --color-titlebar-text:   #9a9a9a;
+  --color-win-close-hover: #c0392b;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  22px;
+
+  /* Border radius - flat design, minimal radius */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+
+  /* Layout */
+  --sidebar-width: 200px;
+  --topbar-height: 40px;
+}
+
+/* ===== Light theme ===== */
+[data-theme="light"] {
+  --color-bg:          #f4f4f4;
+  --color-surface:     #ffffff;
+  --color-surface-2:   #ebebeb;
+  --color-border:      #dedede;
+  --color-border-2:    #c8c8c8;
+
+  --color-text-primary:   #1a1a1a;
+  --color-text-secondary: #555555;
+  --color-text-muted:     #999999;
+
+  --color-accent:      #1a1a1a;
+  --color-accent-dim:  #e4e4e4;
+
+  --color-danger:      #cc3333;
+  --color-danger-bg:   #fce8e8;
+  --color-success:     #2e7d32;
+  --color-success-bg:  #e8f5e9;
+  --color-warning:     #b45309;
+  --color-warning-bg:  #fef3e2;
+
+  --color-titlebar-bg:     #e2e2e2;
+  --color-titlebar-text:   #444444;
+  --color-win-close-hover: #c0392b;
+}
+
+/* 状态色背景 - 深色模式默认值 */
+:root {
+  --color-danger-bg:  #3a1a1a;
+  --color-success-bg: #1a3a1a;
+  --color-warning-bg: #3a2a0a;
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-2);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ===== Typography ===== */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+p {
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* ===== Interactive base ===== */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-base);
+  border: none;
+  background: none;
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+button:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-accent);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ===== Utility classes ===== */
+.text-primary   { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted     { color: var(--color-text-muted); }
+.text-danger    { color: var(--color-danger); }
+.text-success   { color: var(--color-success); }
+
+.text-xs  { font-size: var(--text-xs); }
+.text-sm  { font-size: var(--text-sm); }
+.text-md  { font-size: var(--text-md); }
+.text-lg  { font-size: var(--text-lg); }
+
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== Reduce motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

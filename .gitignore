@@ -1,0 +1,49 @@
+# ===== Node =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===== Build output =====
+dist/
+dist-ssr/
+
+# ===== Rust / Cargo =====
+src-tauri/target/
+src-tauri/gen/
+
+# ===== Tauri =====
+# 自动生成的 schema / 类型文件，可由 tauri dev 重新生成
+src-tauri/gen/
+
+# ===== Environment & secrets =====
+.env
+.env.*
+!.env.example
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Editor =====
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.local
+
+# ===== Logs =====
+logs/
+*.log
+
+# ===== Misc =====
+*.local
+.cache/
