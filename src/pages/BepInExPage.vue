@@ -9,7 +9,7 @@ import BaseBadge from '@/components/ui/BaseBadge.vue'
 import { Download, Trash2, RefreshCw, Loader, AlertCircle } from 'lucide-vue-next'
 import {
   checkBepInExStatus, fetchBepInExReleases, installBepInEx, uninstallBepInEx,
-  type ReleaseAsset, type InstallProgress,
+  type ReleaseAsset, type InstallProgress, type BepInExIntegrity,
 } from '@/api'
 
 const route = useRoute()
@@ -22,6 +22,7 @@ const game = computed(() => gameStore.games.find(g => g.id === gameId.value))
 
 const installed = ref(false)
 const installedVersion = ref('')
+const integrity = ref<BepInExIntegrity | null>(null)
 const releases = ref<ReleaseAsset[]>([])
 const selectedRelease = ref<ReleaseAsset | null>(null)
 
@@ -31,11 +32,25 @@ const progress = ref(0)
 const statusText = ref('')
 const error = ref('')
 
+const integrityItems = computed(() => {
+  if (!integrity.value) return []
+  const ig = integrity.value
+  return [
+    { label: 'winhttp.dll（注入器）', ok: ig.winhttp_dll, required: true },
+    { label: 'doorstop_config.ini', ok: ig.doorstop_cfg, required: true },
+    { label: '.doorstop_version', ok: ig.doorstop_version, required: true },
+    { label: 'BepInEx/core/ 目录', ok: ig.core_dir, required: true },
+    { label: 'core/BepInEx*.dll（核心）', ok: ig.core_bepinex_dll, required: true },
+    { label: 'changelog.txt', ok: ig.changelog, required: false },
+  ]
+})
+
 async function loadStatus() {
   if (!game.value) return
   const s = await checkBepInExStatus(game.value.path)
   installed.value = s.installed
   installedVersion.value = s.version ?? ''
+  integrity.value = s.integrity
 }
 
 async function loadReleases() {
@@ -136,6 +151,27 @@ onMounted(async () => {
           <div class="status-card__row">
             <span class="text-secondary text-sm">游戏目录</span>
             <span class="text-sm text-muted truncate" style="max-width:280px">{{ game?.path }}</span>
+          </div>
+
+          <!-- 完整性检查 -->
+          <div v-if="integrity" class="status-card__row status-card__row--integrity">
+            <span class="text-secondary text-sm">完整性检查</span>
+            <div class="integrity-grid">
+              <div
+                v-for="item in integrityItems"
+                :key="item.label"
+                class="integrity-item"
+                :class="item.ok ? 'integrity-item--ok' : (item.required ? 'integrity-item--missing' : 'integrity-item--optional')"
+              >
+                <span class="integrity-item__dot" />
+                <span class="integrity-item__label">{{ item.label }}</span>
+                <span v-if="!item.required" class="integrity-item__tag">可选</span>
+              </div>
+              <div class="integrity-score">
+                必须项 {{ integrity.score }} / 5
+                <span class="text-xs text-muted">（≥4 视为已安装）</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -255,6 +291,55 @@ onMounted(async () => {
   border-bottom: 1px solid var(--color-border);
 }
 .status-card__row:last-child { border-bottom: none; }
+.status-card__row--integrity { align-items: flex-start; flex-wrap: wrap; gap: var(--space-2); }
+
+.integrity-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 200px;
+}
+
+.integrity-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+}
+
+.integrity-item__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.integrity-item--ok      .integrity-item__dot { background: var(--color-success); }
+.integrity-item--missing .integrity-item__dot { background: var(--color-danger); }
+.integrity-item--optional .integrity-item__dot { background: var(--color-border-2); }
+
+.integrity-item--ok      .integrity-item__label { color: var(--color-text-primary); }
+.integrity-item--missing .integrity-item__label { color: var(--color-danger); }
+.integrity-item--optional .integrity-item__label { color: var(--color-text-muted); }
+
+.integrity-item__tag {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.integrity-score {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
 
 .releases-loading {
   display: flex;

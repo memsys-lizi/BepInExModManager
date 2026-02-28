@@ -4,11 +4,25 @@ use tauri::{AppHandle, Emitter};
 
 // ── 数据结构 ──────────────────────────────────────────────────
 
+/// 各特征点检查结果，前端可用于展示详情
+/// 参考 BepInEx 5.x 初始安装包的真实文件结构
+#[derive(Serialize, Clone)]
+pub struct BepInExIntegrity {
+    pub winhttp_dll: bool,        // winhttp.dll —— doorstop 注入器（必须）
+    pub doorstop_cfg: bool,       // doorstop_config.ini —— doorstop 配置（必须）
+    pub doorstop_version: bool,   // .doorstop_version —— 版本标记（必须）
+    pub core_dir: bool,           // BepInEx/core/ 目录存在（必须）
+    pub core_bepinex_dll: bool,   // core/BepInEx.dll 或同类核心 dll（必须）
+    pub changelog: bool,          // changelog.txt —— 可选，但通常存在
+    pub score: u8,                // 必须项满分 5，>=4 视为已安装（changelog 可缺）
+}
+
 #[derive(Serialize, Clone)]
 pub struct BepInExStatus {
     pub installed: bool,
     pub version: Option<String>,
     pub path: Option<String>,
+    pub integrity: BepInExIntegrity,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -51,31 +65,106 @@ fn build_client(proxy: Option<&str>) -> Result<reqwest::Client, String> {
 }
 
 // ── 命令：检测安装状态 ────────────────────────────────────────
+// 判断依据：BepInEx 5.x 初始安装包的真实文件结构
+//   游戏目录/
+//   ├── winhttp.dll            ← doorstop 注入器（必须）
+//   ├── doorstop_config.ini    ← doorstop 配置（必须）
+//   ├── .doorstop_version      ← 版本标记（必须）
+//   ├── changelog.txt          ← 可选
+//   └── BepInEx/core/
+//       └── BepInEx.dll        ← 核心（必须；6.x 为 BepInEx.Unity.*.dll）
 
 #[tauri::command]
 pub fn check_bepinex_status(game_path: String) -> BepInExStatus {
-    let bep_dir = PathBuf::from(&game_path).join("BepInEx");
+    let game_dir = PathBuf::from(&game_path);
+    let bep_dir  = game_dir.join("BepInEx");
     let core_dir = bep_dir.join("core");
-    let chainloader = core_dir.join("BepInEx.Core.dll");
 
-    if !chainloader.exists() {
-        return BepInExStatus { installed: false, version: None, path: None };
+    // ── 逐项检查 ──────────────────────────────────────────────
+    let winhttp_dll      = game_dir.join("winhttp.dll").is_file();
+    let doorstop_cfg     = game_dir.join("doorstop_config.ini").is_file();
+    let doorstop_version = game_dir.join(".doorstop_version").is_file();
+    let core_dir_ok      = core_dir.is_dir();
+    let changelog        = game_dir.join("changelog.txt").is_file();
+
+    // core/ 下必须有 BepInEx.dll（5.x）或 BepInEx.Unity.*.dll（6.x）等核心 dll
+    let core_bepinex_dll = core_dir_ok && dir_contains_bepinex_dll(&core_dir);
+
+    // ── 完整性评分（必须项各 1 分，满分 5；changelog 可选不计分）─
+    // 阈值 >=4：允许 .doorstop_version 或 core_dll 其中一项缺失仍视为安装
+    let score: u8 = (winhttp_dll as u8)
+        + (doorstop_cfg as u8)
+        + (doorstop_version as u8)
+        + (core_dir_ok as u8)
+        + (core_bepinex_dll as u8);
+
+    let integrity = BepInExIntegrity {
+        winhttp_dll,
+        doorstop_cfg,
+        doorstop_version,
+        core_dir: core_dir_ok,
+        core_bepinex_dll,
+        changelog,
+        score,
+    };
+
+    if score < 4 {
+        return BepInExStatus { installed: false, version: None, path: None, integrity };
     }
 
-    let version = read_bepinex_version(&core_dir);
+    let version = read_bepinex_version(&game_dir);
 
     BepInExStatus {
         installed: true,
         version,
         path: Some(bep_dir.to_string_lossy().into_owned()),
+        integrity,
     }
 }
 
-fn read_bepinex_version(core_dir: &Path) -> Option<String> {
-    let changelog = core_dir.parent()?.parent()?.join("changelog.txt");
+/// core/ 下是否存在以 "BepInEx" 开头的 .dll（兼容 5.x / 6.x 核心命名）
+fn dir_contains_bepinex_dll(dir: &Path) -> bool {
+    std::fs::read_dir(dir)
+        .ok()
+        .map(|rd| {
+            rd.flatten().any(|e| {
+                let name = e.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with("BepInEx") && name.ends_with(".dll")
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// 读取版本号，优先解析 changelog.txt 首行
+fn read_bepinex_version(game_dir: &Path) -> Option<String> {
+    let changelog = game_dir.join("changelog.txt");
     if let Ok(text) = std::fs::read_to_string(&changelog) {
-        if let Some(line) = text.lines().next() {
-            return Some(line.trim().to_string());
+        // changelog.txt 首行通常形如 "## BepInEx v5.4.23.2" 或 "BepInEx 5.4.23.2"
+        for line in text.lines() {
+            let trimmed = line.trim().trim_start_matches('#').trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            // 提取版本号：找到 v\d 或纯数字开头的 token
+            if let Some(ver) = extract_version_token(trimmed) {
+                return Some(ver);
+            }
+            // 找不到版本号但行非空，直接返回原行（至少有信息）
+            return Some(trimmed.to_string());
+        }
+    }
+    None
+}
+
+/// 从字符串中提取形如 "v5.4.23" 或 "5.4.23" 的版本号
+fn extract_version_token(s: &str) -> Option<String> {
+    for token in s.split_whitespace() {
+        let t = token.trim_start_matches('v');
+        // 版本号：至少两段数字（如 5.4）
+        let parts: Vec<&str> = t.split('.').collect();
+        if parts.len() >= 2 && parts.iter().all(|p| p.parse::<u32>().is_ok()) {
+            return Some(format!("v{}", t));
         }
     }
     None

@@ -15,10 +15,21 @@ export function validateGameDir(path: string): Promise<GameValidation> {
 }
 
 // ===== BepInEx =====
+export interface BepInExIntegrity {
+  winhttp_dll: boolean
+  doorstop_cfg: boolean
+  doorstop_version: boolean
+  core_dir: boolean
+  core_bepinex_dll: boolean
+  changelog: boolean
+  score: number   // 必须项满分 5，>=4 视为已安装
+}
+
 export interface BepInExStatusRaw {
   installed: boolean
   version?: string
   path?: string
+  integrity: BepInExIntegrity
 }
 
 export function checkBepInExStatus(gamePath: string): Promise<BepInExStatusRaw> {
