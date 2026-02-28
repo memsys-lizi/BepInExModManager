@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
 import { useModStore } from '@/store/modStore'
 import { useI18n } from '@/i18n'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseToggle from '@/components/ui/BaseToggle.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import {
-  Download, RefreshCw, Trash2, FolderOpen, PackageOpen,
-  AlertCircle, Loader, ChevronDown, ChevronRight, SlidersHorizontal, Folder, File,
+  Download, RefreshCw, Trash2, FolderOpen, PackageOpen, PackagePlus,
+  AlertCircle, Loader, Check, ChevronDown, ChevronRight, SlidersHorizontal,
+  Folder, File, Play, Link,
 } from 'lucide-vue-next'
 import type { ModInfo } from '@/types'
+import type { ConflictStrategy } from '@/api'
 import {
-  checkBepInExStatus, scanMods, enableMod, disableMod, deleteMod, openPluginsDir,
+  checkBepInExStatus, scanMods, enableMod, disableMod, deleteMod,
+  openPluginsDir, installMod, installModFromUrl, launchGame,
 } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
 const modStore = useModStore()
-
 const { t } = useI18n()
 
 const gameId = computed(() => route.params.id as string)
@@ -33,8 +37,6 @@ const loadingMods = ref(false)
 const modToDelete = ref<ModInfo | null>(null)
 const searchText = ref('')
 const error = ref('')
-
-// 展开状态：记录哪些 mod id 是展开的
 const expanded = ref<Set<string>>(new Set())
 
 const gameMods = computed(() => {
@@ -45,11 +47,8 @@ const gameMods = computed(() => {
 })
 
 function toggleExpand(modId: string) {
-  if (expanded.value.has(modId)) {
-    expanded.value.delete(modId)
-  } else {
-    expanded.value.add(modId)
-  }
+  if (expanded.value.has(modId)) expanded.value.delete(modId)
+  else expanded.value.add(modId)
 }
 
 async function refresh() {
@@ -90,7 +89,6 @@ async function toggleMod(mod: ModInfo) {
       const newPath = await disableMod(mod.modPath, mod.isFolder)
       modStore.updateMod(mod.id, {
         status: 'disabled',
-        // 散装 dll 路径会变（加了 .disabled），文件夹路径不变
         modPath: mod.isFolder ? mod.modPath : newPath,
         dlls: mod.dlls.map(d => ({ ...d, status: 'disabled' as const })),
       })
@@ -107,9 +105,7 @@ async function toggleMod(mod: ModInfo) {
   }
 }
 
-function confirmDelete(mod: ModInfo) {
-  modToDelete.value = mod
-}
+function confirmDelete(mod: ModInfo) { modToDelete.value = mod }
 
 async function doDeleteMod() {
   if (!modToDelete.value) return
@@ -127,7 +123,136 @@ function openFolder() {
   if (game.value) openPluginsDir(game.value.path)
 }
 
-onMounted(refresh)
+// ── 启动游戏 ──────────────────────────────────────────────────
+async function doLaunchGame() {
+  if (!game.value) return
+  try {
+    await launchGame(game.value.path, game.value.exeName)
+  } catch (e: any) {
+    error.value = String(e)
+  }
+}
+
+// ── 安装核心逻辑 ──────────────────────────────────────────────
+const isDragging = ref(false)
+const installing = ref(false)
+const installResult = ref<{ name: string; success: boolean; msg: string } | null>(null)
+
+// 冲突弹窗状态
+const conflictInfo = ref<{ name: string; sourcePath: string; isUrl: boolean; urlStr?: string } | null>(null)
+
+// URL 安装弹窗
+const showUrlDialog = ref(false)
+const urlInput = ref('')
+const urlInstalling = ref(false)
+
+let unlistenDrop: (() => void) | null = null
+
+async function setupDragDrop() {
+  const win = getCurrentWindow()
+  unlistenDrop = await win.onDragDropEvent((event) => {
+    if (!bepInstalled.value || !game.value) return
+    if (event.payload.type === 'over') {
+      isDragging.value = true
+    } else if (event.payload.type === 'leave') {
+      isDragging.value = false
+    } else if (event.payload.type === 'drop') {
+      isDragging.value = false
+      const paths: string[] = (event.payload as any).paths ?? []
+      const supported = paths.filter(p =>
+        p.toLowerCase().endsWith('.zip') || p.toLowerCase().endsWith('.dll')
+      )
+      if (supported.length > 0) doInstallMod(supported[0])
+    }
+  })
+}
+
+async function pickAndInstall() {
+  const selected = await openDialog({
+    title: '选择 Mod 文件',
+    filters: [{ name: 'Mod 文件', extensions: ['zip', 'dll'] }],
+    multiple: false,
+  }) as string | null
+  if (selected) doInstallMod(selected)
+}
+
+/** 执行安装（本地文件），strategy 由冲突弹窗传入 */
+async function doInstallMod(sourcePath: string, strategy?: ConflictStrategy) {
+  if (!game.value || installing.value) return
+  installing.value = true
+  installResult.value = null
+  try {
+    const result = await installMod(game.value.path, sourcePath, strategy)
+
+    if (result.conflict) {
+      // 需要用户决定
+      conflictInfo.value = {
+        name: result.mod_name,
+        sourcePath,
+        isUrl: false,
+      }
+      return
+    }
+
+    installResult.value = { name: result.mod_name, success: true, msg: '安装成功' }
+    await refresh()
+  } catch (e: any) {
+    installResult.value = { name: sourcePath.split(/[\\/]/).pop() ?? '', success: false, msg: String(e) }
+  } finally {
+    installing.value = false
+    if (installResult.value?.success) {
+      setTimeout(() => { installResult.value = null }, 2500)
+    }
+  }
+}
+
+/** 执行 URL 安装 */
+async function doInstallUrl(strategy?: ConflictStrategy) {
+  const url = urlInput.value.trim()
+  if (!url || !game.value) return
+  urlInstalling.value = true
+  showUrlDialog.value = false
+  installing.value = true
+  installResult.value = null
+  try {
+    const result = await installModFromUrl(game.value.path, url, strategy)
+    if (result.conflict) {
+      conflictInfo.value = { name: result.mod_name, sourcePath: '', isUrl: true, urlStr: url }
+      return
+    }
+    installResult.value = { name: result.mod_name, success: true, msg: '下载并安装成功' }
+    urlInput.value = ''
+    await refresh()
+  } catch (e: any) {
+    installResult.value = { name: url, success: false, msg: String(e) }
+  } finally {
+    installing.value = false
+    urlInstalling.value = false
+    if (installResult.value?.success) {
+      setTimeout(() => { installResult.value = null }, 2500)
+    }
+  }
+}
+
+/** 用户在冲突弹窗做出选择后 */
+async function onConflictResolved(strategy: ConflictStrategy) {
+  const info = conflictInfo.value
+  conflictInfo.value = null
+  if (!info || strategy === 'cancel') return
+
+  if (info.isUrl && info.urlStr) {
+    await doInstallUrl(strategy)
+  } else {
+    await doInstallMod(info.sourcePath, strategy)
+  }
+}
+
+onMounted(async () => {
+  await refresh()
+  await setupDragDrop()
+})
+
+onUnmounted(() => { unlistenDrop?.() })
 </script>
 
 <template>
@@ -139,9 +264,32 @@ onMounted(refresh)
           <RefreshCw v-else :size="13" />
           {{ t.common.refresh }}
         </BaseButton>
+        <BaseButton
+          v-if="bepInstalled"
+          size="sm"
+          :disabled="installing"
+          @click="pickAndInstall"
+        >
+          <PackagePlus :size="13" />
+          安装 Mod
+        </BaseButton>
+        <BaseButton
+          v-if="bepInstalled"
+          variant="ghost"
+          size="sm"
+          :disabled="installing"
+          @click="showUrlDialog = true"
+        >
+          <Link :size="13" />
+          URL 安装
+        </BaseButton>
         <BaseButton variant="ghost" size="sm" @click="openFolder">
           <FolderOpen :size="13" />
           打开目录
+        </BaseButton>
+        <BaseButton variant="ghost" size="sm" @click="doLaunchGame">
+          <Play :size="13" />
+          启动游戏
         </BaseButton>
       </template>
     </AppTopBar>
@@ -290,6 +438,44 @@ onMounted(refresh)
       </div>
     </div>
 
+    <!-- 拖拽覆盖层 -->
+    <Transition name="drag-overlay">
+      <div v-if="isDragging" class="drag-overlay">
+        <div class="drag-overlay__inner">
+          <PackagePlus :size="32" />
+          <span>松开以安装 Mod</span>
+          <span class="drag-overlay__sub">支持 .zip 压缩包 和 .dll 文件</span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 安装中 overlay -->
+    <Transition name="drag-overlay">
+      <div v-if="installing" class="drag-overlay drag-overlay--installing">
+        <div class="drag-overlay__inner">
+          <Loader :size="28" class="spin" />
+          <span>正在安装...</span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 安装结果 toast -->
+    <Transition name="toast">
+      <div
+        v-if="installResult"
+        class="install-toast"
+        :class="installResult.success ? 'install-toast--ok' : 'install-toast--err'"
+        @click="installResult = null"
+      >
+        <Check v-if="installResult.success" :size="14" />
+        <AlertCircle v-else :size="14" />
+        <div class="install-toast__text">
+          <span class="install-toast__name">{{ installResult.name }}</span>
+          <span class="install-toast__msg">{{ installResult.msg }}</span>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Delete confirm modal -->
     <BaseModal v-if="modToDelete" title="删除 Mod" width="340px" @close="modToDelete = null">
       <p class="text-secondary text-sm">
@@ -306,11 +492,49 @@ onMounted(refresh)
         <BaseButton variant="danger" @click="doDeleteMod">删除</BaseButton>
       </template>
     </BaseModal>
+
+    <!-- URL 安装弹窗 -->
+    <BaseModal v-if="showUrlDialog" title="通过 URL 安装 Mod" width="420px" @close="showUrlDialog = false">
+      <p class="text-muted text-xs" style="margin-bottom: var(--space-3);">
+        输入 .zip 或 .dll 的直链地址，将自动下载并安装到插件目录。
+      </p>
+      <input
+        v-model="urlInput"
+        class="url-input"
+        placeholder="https://example.com/MyMod.zip"
+        @keydown.enter="doInstallUrl()"
+      />
+      <template #footer>
+        <BaseButton variant="ghost" @click="showUrlDialog = false; urlInput = ''">取消</BaseButton>
+        <BaseButton
+          :disabled="!urlInput.trim() || urlInstalling"
+          :loading="urlInstalling"
+          @click="doInstallUrl()"
+        >
+          <Download :size="13" />
+          下载并安装
+        </BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- 冲突处理弹窗 -->
+    <BaseModal v-if="conflictInfo" title="文件夹已存在" width="360px" @close="onConflictResolved('cancel')">
+      <p class="text-secondary text-sm">
+        插件目录中已存在名为
+        <strong class="text-primary">{{ conflictInfo.name }}</strong>
+        的文件夹，请选择处理方式：
+      </p>
+      <template #footer>
+        <BaseButton variant="ghost" @click="onConflictResolved('cancel')">取消</BaseButton>
+        <BaseButton variant="ghost" @click="onConflictResolved('rename')">自动重命名</BaseButton>
+        <BaseButton variant="danger" @click="onConflictResolved('overwrite')">覆盖</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; height: 100%; }
+.page { display: flex; flex-direction: column; height: 100%; position: relative; }
 
 .page__body {
   flex: 1;
@@ -478,6 +702,102 @@ onMounted(refresh)
 }
 .dll-status--on  { color: var(--color-success); }
 .dll-status--off { color: var(--color-text-muted); }
+
+/* ── 拖拽覆盖层 ── */
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.drag-overlay--installing {
+  background: color-mix(in srgb, var(--color-bg) 90%, transparent);
+}
+
+.drag-overlay__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 48px;
+  border: 2px dashed var(--color-border-2);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 500;
+  background: var(--color-surface);
+}
+
+.drag-overlay__sub {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+/* 拖拽动画 */
+.drag-overlay-enter-active,
+.drag-overlay-leave-active { transition: opacity 150ms ease; }
+.drag-overlay-enter-from,
+.drag-overlay-leave-to    { opacity: 0; }
+
+/* ── 安装结果 Toast ── */
+.install-toast {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.install-toast--ok  { border-color: var(--color-success); color: var(--color-success); }
+.install-toast--err { border-color: var(--color-danger);  color: var(--color-danger);  }
+
+.install-toast__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.install-toast__name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.install-toast__msg {
+  font-size: var(--text-xs);
+  color: inherit;
+}
+
+.toast-enter-active,
+.toast-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
+.toast-enter-from,
+.toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(8px); }
+
+/* URL 安装输入框 */
+.url-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
 
 /* Spin */
 .spin { animation: spin 1s linear infinite; }

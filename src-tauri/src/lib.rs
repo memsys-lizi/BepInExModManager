@@ -23,6 +23,9 @@ pub fn run() {
             mods::disable_mod,
             mods::delete_mod,
             mods::open_plugins_dir,
+            mods::install_mod,
+            mods::install_mod_from_url,
+            mods::launch_game,
             // config
             config::list_config_files,
             config::read_config_file,

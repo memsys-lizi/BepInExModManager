@@ -119,6 +119,36 @@ export function openPluginsDir(gamePath: string): Promise<void> {
   return invoke('open_plugins_dir', { gamePath })
 }
 
+export type ConflictStrategy = 'rename' | 'overwrite' | 'cancel'
+
+export interface InstallModResult {
+  mod_name: string
+  mod_path: string
+  is_folder: boolean
+  conflict: boolean
+  conflict_path: string | null
+}
+
+export function installMod(
+  gamePath: string,
+  sourcePath: string,
+  conflictStrategy?: ConflictStrategy,
+): Promise<InstallModResult> {
+  return invoke('install_mod', { gamePath, sourcePath, conflictStrategy: conflictStrategy ?? null })
+}
+
+export function installModFromUrl(
+  gamePath: string,
+  url: string,
+  conflictStrategy?: ConflictStrategy,
+): Promise<InstallModResult> {
+  return invoke('install_mod_from_url', { gamePath, url, conflictStrategy: conflictStrategy ?? null })
+}
+
+export function launchGame(gamePath: string, exeName: string): Promise<void> {
+  return invoke('launch_game', { gamePath, exeName })
+}
+
 // ===== Config =====
 export interface ConfigEntryRaw {
   key: string
