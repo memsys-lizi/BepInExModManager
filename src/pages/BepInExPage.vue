@@ -118,13 +118,44 @@ onMounted(async () => {
   <div class="page">
     <AppTopBar>
       <template #actions>
-        <BaseButton variant="ghost" size="sm" :disabled="loadingReleases" @click="loadReleases">
+        <!-- 操作按钮固定在顶部 -->
+        <BaseButton
+          variant="ghost"
+          size="sm"
+          :disabled="loadingReleases"
+          @click="loadReleases"
+        >
           <Loader v-if="loadingReleases" :size="13" class="spin" />
           <RefreshCw v-else :size="13" />
-          刷新版本
+          刷新
+        </BaseButton>
+        <BaseButton
+          size="sm"
+          :disabled="!selectedRelease || installing || loadingReleases"
+          :loading="installing"
+          @click="install"
+        >
+          <Download :size="13" />
+          {{ installed ? '重新安装' : '安装' }}
+        </BaseButton>
+        <BaseButton
+          v-if="installed"
+          variant="danger"
+          size="sm"
+          :disabled="installing"
+          @click="uninstall"
+        >
+          <Trash2 :size="13" />
+          卸载
         </BaseButton>
       </template>
     </AppTopBar>
+
+    <!-- 进度条贴着 TopBar 下方固定显示 -->
+    <div v-if="installing" class="progress-strip">
+      <div class="progress-strip__fill" :style="{ width: `${progress}%` }" />
+      <span class="progress-strip__text">{{ statusText }} {{ progress }}%</span>
+    </div>
 
     <div class="page__body">
       <!-- Error -->
@@ -134,111 +165,90 @@ onMounted(async () => {
         <button class="error-bar__close" @click="error = ''">×</button>
       </div>
 
-      <!-- Current status -->
-      <section class="section">
-        <h3 class="section__title">当前状态</h3>
-        <div class="status-card">
-          <div class="status-card__row">
-            <span class="text-secondary text-sm">安装状态</span>
-            <BaseBadge :variant="installed ? 'success' : 'danger'">
-              {{ installed ? '已安装' : '未安装' }}
-            </BaseBadge>
-          </div>
-          <div v-if="installed" class="status-card__row">
-            <span class="text-secondary text-sm">当前版本</span>
-            <span class="text-sm font-mono">{{ installedVersion || '未知' }}</span>
-          </div>
-          <div class="status-card__row">
-            <span class="text-secondary text-sm">游戏目录</span>
-            <span class="text-sm text-muted truncate" style="max-width:280px">{{ game?.path }}</span>
-          </div>
+      <!-- 左右双栏：状态 + 版本列表 -->
+      <div class="two-col">
+        <!-- 左：当前状态 -->
+        <div class="col-left">
+          <h3 class="section__title">当前状态</h3>
+          <div class="status-card">
+            <div class="status-card__row">
+              <span class="text-secondary text-sm">安装状态</span>
+              <BaseBadge :variant="installed ? 'success' : 'danger'">
+                {{ installed ? '已安装' : '未安装' }}
+              </BaseBadge>
+            </div>
+            <div v-if="installed" class="status-card__row">
+              <span class="text-secondary text-sm">当前版本</span>
+              <span class="text-sm font-mono">{{ installedVersion || '未知' }}</span>
+            </div>
+            <div class="status-card__row">
+              <span class="text-secondary text-sm">游戏目录</span>
+              <span class="text-xs text-muted truncate" style="max-width:180px">{{ game?.path }}</span>
+            </div>
 
-          <!-- 完整性检查 -->
-          <div v-if="integrity" class="status-card__row status-card__row--integrity">
-            <span class="text-secondary text-sm">完整性检查</span>
-            <div class="integrity-grid">
-              <div
-                v-for="item in integrityItems"
-                :key="item.label"
-                class="integrity-item"
-                :class="item.ok ? 'integrity-item--ok' : (item.required ? 'integrity-item--missing' : 'integrity-item--optional')"
-              >
-                <span class="integrity-item__dot" />
-                <span class="integrity-item__label">{{ item.label }}</span>
-                <span v-if="!item.required" class="integrity-item__tag">可选</span>
-              </div>
-              <div class="integrity-score">
-                必须项 {{ integrity.score }} / 5
-                <span class="text-xs text-muted">（≥4 视为已安装）</span>
+            <!-- 完整性检查 -->
+            <div v-if="integrity" class="status-card__row status-card__row--integrity">
+              <span class="text-secondary text-sm">完整性</span>
+              <div class="integrity-grid">
+                <div
+                  v-for="item in integrityItems"
+                  :key="item.label"
+                  class="integrity-item"
+                  :class="item.ok ? 'integrity-item--ok' : (item.required ? 'integrity-item--missing' : 'integrity-item--optional')"
+                >
+                  <span class="integrity-item__dot" />
+                  <span class="integrity-item__label">{{ item.label }}</span>
+                  <span v-if="!item.required" class="integrity-item__tag">可选</span>
+                </div>
+                <div class="integrity-score">
+                  {{ integrity.score }} / 5
+                  <span class="text-xs text-muted">（≥4 已安装）</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- Version picker -->
-      <section class="section">
-        <h3 class="section__title">选择版本</h3>
-
-        <div v-if="loadingReleases" class="releases-loading">
-          <Loader :size="16" class="spin text-muted" />
-          <span class="text-sm text-muted">正在获取版本列表...</span>
+          <!-- 安装完成提示 -->
+          <p v-if="statusText && !installing" class="status-done text-sm text-muted">
+            {{ statusText }}
+          </p>
         </div>
 
-        <div v-else-if="releases.length === 0" class="releases-loading">
-          <AlertCircle :size="16" class="text-muted" />
-          <span class="text-sm text-muted">无法获取版本列表，请检查网络或使用代理</span>
-        </div>
+        <!-- 右：版本列表 -->
+        <div class="col-right">
+          <h3 class="section__title">选择版本</h3>
+          <p class="release-hint">
+            大多数游戏选 <strong>x64</strong>；若游戏为 32 位进程则选 <strong>x86</strong>。
+            不确定时优先选 x64。
+          </p>
 
-        <div v-else class="release-list">
-          <button
-            v-for="r in releases"
-            :key="`${r.version}-${r.arch}`"
-            class="release-item"
-            :class="{ 'release-item--selected': selectedRelease === r }"
-            @click="selectedRelease = r"
-          >
-            <div class="release-item__left">
-              <span class="release-item__ver">{{ r.version }}</span>
-              <BaseBadge variant="muted">{{ r.arch }}</BaseBadge>
-            </div>
-            <span class="text-xs text-muted">{{ r.published_at }}</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- Actions + Progress -->
-      <section class="section section--actions">
-        <!-- Progress bar -->
-        <div v-if="installing" class="progress-wrap">
-          <div class="progress-bar">
-            <div class="progress-bar__fill" :style="{ width: `${progress}%` }" />
+          <div v-if="loadingReleases" class="releases-loading">
+            <Loader :size="16" class="spin text-muted" />
+            <span class="text-sm text-muted">正在获取...</span>
           </div>
-          <span class="text-xs text-muted">{{ statusText }} {{ progress }}%</span>
-        </div>
 
-        <div class="action-row">
-          <BaseButton
-            :disabled="!selectedRelease || installing || loadingReleases"
-            :loading="installing"
-            @click="install"
-          >
-            <Download :size="13" />
-            {{ installed ? '重新安装' : '安装' }}
-          </BaseButton>
-          <BaseButton
-            v-if="installed"
-            variant="danger"
-            :disabled="installing"
-            @click="uninstall"
-          >
-            <Trash2 :size="13" />
-            卸载
-          </BaseButton>
-        </div>
+          <div v-else-if="releases.length === 0" class="releases-loading">
+            <AlertCircle :size="16" class="text-muted" />
+            <span class="text-sm text-muted">获取失败，请检查网络或在设置中配置代理</span>
+          </div>
 
-        <p v-if="statusText && !installing" class="text-sm text-muted">{{ statusText }}</p>
-      </section>
+          <div v-else class="release-list">
+            <button
+              v-for="r in releases"
+              :key="`${r.version}-${r.arch}`"
+              class="release-item"
+              :class="{ 'release-item--selected': selectedRelease === r }"
+              @click="selectedRelease = r"
+            >
+              <div class="release-item__left">
+                <span class="release-item__ver">{{ r.version }}</span>
+                <BaseBadge variant="muted">{{ r.arch }}</BaseBadge>
+              </div>
+              <span class="text-xs text-muted">{{ r.published_at }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -246,13 +256,35 @@ onMounted(async () => {
 <style scoped>
 .page { display: flex; flex-direction: column; height: 100%; }
 
+/* 进度条贴着 TopBar 下方 */
+.progress-strip {
+  position: relative;
+  height: 28px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.progress-strip__fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--color-accent);
+  opacity: 0.12;
+  transition: width 200ms ease;
+}
+.progress-strip__text {
+  position: relative;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  padding: 0 var(--space-4);
+}
+
 .page__body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
 }
 
 .error-bar {
@@ -264,12 +296,20 @@ onMounted(async () => {
   color: var(--color-danger);
   font-size: var(--text-sm);
   border-radius: var(--radius-sm);
-  flex-shrink: 0;
+  margin-bottom: var(--space-4);
 }
 .error-bar__close { margin-left: auto; cursor: pointer; font-size: var(--text-md); color: inherit; }
 
+/* 左右双栏布局 */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
 .section__title {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -296,8 +336,7 @@ onMounted(async () => {
 .integrity-grid {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  min-width: 200px;
+  gap: 4px;
 }
 
 .integrity-item {
@@ -308,8 +347,8 @@ onMounted(async () => {
 }
 
 .integrity-item__dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -328,7 +367,7 @@ onMounted(async () => {
   color: var(--color-text-muted);
   border: 1px solid var(--color-border);
   border-radius: 2px;
-  padding: 0 4px;
+  padding: 0 3px;
   line-height: 14px;
 }
 
@@ -341,6 +380,22 @@ onMounted(async () => {
   border-top: 1px solid var(--color-border);
 }
 
+.status-done {
+  margin-top: var(--space-3);
+}
+
+.release-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+  line-height: 1.6;
+}
+.release-hint strong {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+/* 版本列表 */
 .releases-loading {
   display: flex;
   align-items: center;
@@ -348,7 +403,13 @@ onMounted(async () => {
   padding: var(--space-4) 0;
 }
 
-.release-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.release-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 320px;
+  overflow-y: auto;
+}
 
 .release-item {
   display: flex;
@@ -367,22 +428,6 @@ onMounted(async () => {
 
 .release-item__left { display: flex; align-items: center; gap: var(--space-2); }
 .release-item__ver { font-size: var(--text-sm); font-weight: 500; font-family: var(--font-mono); }
-
-.section--actions { display: flex; flex-direction: column; gap: var(--space-3); }
-.action-row { display: flex; gap: var(--space-2); }
-
-.progress-wrap { display: flex; flex-direction: column; gap: var(--space-1); }
-.progress-bar {
-  height: 3px;
-  background: var(--color-border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.progress-bar__fill {
-  height: 100%;
-  background: var(--color-accent);
-  transition: width 200ms ease;
-}
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

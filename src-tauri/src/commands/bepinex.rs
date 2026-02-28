@@ -38,6 +38,7 @@ pub struct ReleaseAsset {
 struct GhRelease {
     tag_name: String,
     published_at: String,
+    prerelease: bool,
     assets: Vec<GhAsset>,
 }
 
@@ -187,18 +188,36 @@ pub async fn fetch_bepinex_releases(proxy: Option<String>) -> Result<Vec<Release
 
     let mut assets: Vec<ReleaseAsset> = Vec::new();
 
-    for release in releases.iter().take(10) {
+    for release in releases.iter().take(20) {
+        // 跳过预发布版（6.0.0-pre.x 等）
+        if release.prerelease {
+            continue;
+        }
+
         for asset in &release.assets {
             let name = &asset.name;
+
+            // 只处理 zip 包
             if !name.ends_with(".zip") {
                 continue;
             }
+
+            // 5.x 命名：BepInEx_win_x64_5.4.23.5.zip
+            // 5.x 旧命名：BepInEx_x64_5.4.22.0.zip（无平台前缀）
+            // 必须是 Windows 包，linux/macos/unix 全部排除
+            if name.contains("linux") || name.contains("unix") || name.contains("macos") {
+                continue;
+            }
+            // Patcher 包跳过（不是完整安装包）
+            if name.contains("Patcher") {
+                continue;
+            }
+
+            // 架构：优先匹配 win_x64 / win_x86，兼容旧的 _x64 / _x86
             let arch = if name.contains("x64") {
                 "x64"
             } else if name.contains("x86") {
                 "x86"
-            } else if name.contains("unix") || name.contains("linux") {
-                "unix"
             } else {
                 continue;
             };
