@@ -169,8 +169,8 @@ async function setupDragDrop() {
 
 async function pickAndInstall() {
   const selected = await openDialog({
-    title: '选择 Mod 文件',
-    filters: [{ name: 'Mod 文件', extensions: ['zip', 'dll'] }],
+    title: t.value.mods.pickModFile,
+    filters: [{ name: t.value.mods.pickModFilter, extensions: ['zip', 'dll'] }],
     multiple: false,
   }) as string | null
   if (selected) doInstallMod(selected)
@@ -194,7 +194,7 @@ async function doInstallMod(sourcePath: string, strategy?: ConflictStrategy) {
       return
     }
 
-    installResult.value = { name: result.mod_name, success: true, msg: '安装成功' }
+    installResult.value = { name: result.mod_name, success: true, msg: t.value.mods.installSuccess }
     await refresh()
   } catch (e: any) {
     installResult.value = { name: sourcePath.split(/[\\/]/).pop() ?? '', success: false, msg: String(e) }
@@ -220,7 +220,7 @@ async function doInstallUrl(strategy?: ConflictStrategy) {
       conflictInfo.value = { name: result.mod_name, sourcePath: '', isUrl: true, urlStr: url }
       return
     }
-    installResult.value = { name: result.mod_name, success: true, msg: '下载并安装成功' }
+    installResult.value = { name: result.mod_name, success: true, msg: t.value.mods.installSuccessUrl }
     urlInput.value = ''
     await refresh()
   } catch (e: any) {
@@ -271,7 +271,7 @@ onUnmounted(() => { unlistenDrop?.() })
           @click="pickAndInstall"
         >
           <PackagePlus :size="13" />
-          安装 Mod
+          {{ t.mods.installMod }}
         </BaseButton>
         <BaseButton
           v-if="bepInstalled"
@@ -281,21 +281,21 @@ onUnmounted(() => { unlistenDrop?.() })
           @click="showUrlDialog = true"
         >
           <Link :size="13" />
-          URL 安装
+          {{ t.mods.installUrl }}
         </BaseButton>
         <BaseButton variant="ghost" size="sm" @click="openFolder">
           <FolderOpen :size="13" />
-          打开目录
+          {{ t.mods.openFolder }}
         </BaseButton>
         <BaseButton variant="ghost" size="sm" @click="doLaunchGame">
           <Play :size="13" />
-          启动游戏
+          {{ t.mods.launchGame }}
         </BaseButton>
       </template>
     </AppTopBar>
 
     <div v-if="!game" class="page__body page__body--center">
-      <p class="text-secondary">游戏不存在</p>
+      <p class="text-secondary">{{ t.common.gameNotFound }}</p>
     </div>
 
     <div v-else class="page__body">
@@ -351,8 +351,8 @@ onUnmounted(() => { unlistenDrop?.() })
 
       <!-- Mod list header -->
       <div class="list-header">
-        <input v-model="searchText" class="list-header__search" placeholder="搜索 Mod..." />
-        <span class="text-muted text-sm">{{ gameMods.length }} 个 Mod</span>
+        <input v-model="searchText" class="list-header__search" :placeholder="t.mods.searchPlaceholder" />
+        <span class="text-muted text-sm">{{ gameMods.length }} {{ t.mods.modCount }}</span>
       </div>
 
       <!-- Mod list -->
@@ -402,15 +402,15 @@ onUnmounted(() => { unlistenDrop?.() })
               <div class="mod-item__info">
                 <div class="mod-item__name truncate">{{ mod.name }}</div>
                 <div class="mod-item__meta text-xs text-muted">
-                  <span v-if="mod.isFolder">{{ mod.dlls.length }} 个 dll</span>
-                  <span v-else>散装 dll</span>
+                  <span v-if="mod.isFolder">{{ mod.dlls.length }} {{ t.mods.dllCount }}</span>
+                  <span v-else>{{ t.mods.looseDll }}</span>
                 </div>
               </div>
 
               <div class="mod-item__actions">
                 <button
                   class="icon-btn icon-btn--danger"
-                  title="删除"
+                  :title="t.mods.deleteMod"
                   @click="confirmDelete(mod)"
                 >
                   <Trash2 :size="13" />
@@ -429,7 +429,7 @@ onUnmounted(() => { unlistenDrop?.() })
                 <File :size="11" class="dll-item__icon" />
                 <span class="dll-item__name truncate text-xs">{{ dll.fileName }}</span>
                 <span class="dll-status" :class="dll.status === 'enabled' ? 'dll-status--on' : 'dll-status--off'">
-                  {{ dll.status === 'enabled' ? '启用' : '禁用' }}
+                  {{ dll.status === 'enabled' ? t.mods.enable : t.mods.disable }}
                 </span>
               </div>
             </div>
@@ -443,8 +443,8 @@ onUnmounted(() => { unlistenDrop?.() })
       <div v-if="isDragging" class="drag-overlay">
         <div class="drag-overlay__inner">
           <PackagePlus :size="32" />
-          <span>松开以安装 Mod</span>
-          <span class="drag-overlay__sub">支持 .zip 压缩包 和 .dll 文件</span>
+          <span>{{ t.mods.dragHint }}</span>
+          <span class="drag-overlay__sub">{{ t.mods.dragSub }}</span>
         </div>
       </div>
     </Transition>
@@ -454,7 +454,7 @@ onUnmounted(() => { unlistenDrop?.() })
       <div v-if="installing" class="drag-overlay drag-overlay--installing">
         <div class="drag-overlay__inner">
           <Loader :size="28" class="spin" />
-          <span>正在安装...</span>
+          <span>{{ t.mods.installing }}</span>
         </div>
       </div>
     </Transition>
@@ -477,57 +477,57 @@ onUnmounted(() => { unlistenDrop?.() })
     </Transition>
 
     <!-- Delete confirm modal -->
-    <BaseModal v-if="modToDelete" title="删除 Mod" width="340px" @close="modToDelete = null">
+    <BaseModal v-if="modToDelete" :title="t.mods.deleteTitle" width="340px" @close="modToDelete = null">
       <p class="text-secondary text-sm">
-        确定要删除 <strong class="text-primary">{{ modToDelete.name }}</strong> 吗？
+        {{ t.mods.deleteModConfirm }} <strong class="text-primary">{{ modToDelete.name }}</strong>{{ t.mods.deleteModConfirmSuffix }}
         <template v-if="modToDelete.isFolder">
-          <br/><span class="text-muted">将删除整个文件夹及其所有文件，不可撤销。</span>
+          <br/><span class="text-muted">{{ t.mods.deleteFolderHint }}</span>
         </template>
         <template v-else>
-          <br/><span class="text-muted">将永久删除此文件，不可撤销。</span>
+          <br/><span class="text-muted">{{ t.mods.deleteDllHint }}</span>
         </template>
       </p>
       <template #footer>
-        <BaseButton variant="ghost" @click="modToDelete = null">取消</BaseButton>
-        <BaseButton variant="danger" @click="doDeleteMod">删除</BaseButton>
+        <BaseButton variant="ghost" @click="modToDelete = null">{{ t.common.cancel }}</BaseButton>
+        <BaseButton variant="danger" @click="doDeleteMod">{{ t.common.delete }}</BaseButton>
       </template>
     </BaseModal>
 
     <!-- URL 安装弹窗 -->
-    <BaseModal v-if="showUrlDialog" title="通过 URL 安装 Mod" width="420px" @close="showUrlDialog = false">
+    <BaseModal v-if="showUrlDialog" :title="t.mods.urlTitle" width="420px" @close="showUrlDialog = false">
       <p class="text-muted text-xs" style="margin-bottom: var(--space-3);">
-        输入 .zip 或 .dll 的直链地址，将自动下载并安装到插件目录。
+        {{ t.mods.urlHint }}
       </p>
       <input
         v-model="urlInput"
         class="url-input"
-        placeholder="https://example.com/MyMod.zip"
+        :placeholder="t.mods.urlPlaceholder"
         @keydown.enter="doInstallUrl()"
       />
       <template #footer>
-        <BaseButton variant="ghost" @click="showUrlDialog = false; urlInput = ''">取消</BaseButton>
+        <BaseButton variant="ghost" @click="showUrlDialog = false; urlInput = ''">{{ t.common.cancel }}</BaseButton>
         <BaseButton
           :disabled="!urlInput.trim() || urlInstalling"
           :loading="urlInstalling"
           @click="doInstallUrl()"
         >
           <Download :size="13" />
-          下载并安装
+          {{ t.mods.urlDownload }}
         </BaseButton>
       </template>
     </BaseModal>
 
     <!-- 冲突处理弹窗 -->
-    <BaseModal v-if="conflictInfo" title="文件夹已存在" width="360px" @close="onConflictResolved('cancel')">
+    <BaseModal v-if="conflictInfo" :title="t.mods.conflictTitle" width="360px" @close="onConflictResolved('cancel')">
       <p class="text-secondary text-sm">
-        插件目录中已存在名为
+        {{ t.mods.conflictMsg }}
         <strong class="text-primary">{{ conflictInfo.name }}</strong>
-        的文件夹，请选择处理方式：
+        {{ t.mods.conflictMsgSuffix }}
       </p>
       <template #footer>
-        <BaseButton variant="ghost" @click="onConflictResolved('cancel')">取消</BaseButton>
-        <BaseButton variant="ghost" @click="onConflictResolved('rename')">自动重命名</BaseButton>
-        <BaseButton variant="danger" @click="onConflictResolved('overwrite')">覆盖</BaseButton>
+        <BaseButton variant="ghost" @click="onConflictResolved('cancel')">{{ t.common.cancel }}</BaseButton>
+        <BaseButton variant="ghost" @click="onConflictResolved('rename')">{{ t.mods.conflictRename }}</BaseButton>
+        <BaseButton variant="danger" @click="onConflictResolved('overwrite')">{{ t.mods.conflictOverwrite }}</BaseButton>
       </template>
     </BaseModal>
   </div>
