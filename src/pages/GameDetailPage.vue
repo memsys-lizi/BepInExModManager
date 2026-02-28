@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
 import { useModStore } from '@/store/modStore'
+import { useI18n } from '@/i18n'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
@@ -21,6 +22,8 @@ const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
 const modStore = useModStore()
+
+const { t } = useI18n()
 
 const gameId = computed(() => route.params.id as string)
 const game = computed(() => gameStore.games.find(g => g.id === gameId.value))
@@ -135,7 +138,7 @@ onMounted(refresh)
         <BaseButton variant="ghost" size="sm" :disabled="loadingMods" @click="refresh">
           <Loader v-if="loadingMods" :size="13" class="spin" />
           <RefreshCw v-else :size="13" />
-          刷新
+          {{ t.common.refresh }}
         </BaseButton>
         <BaseButton variant="ghost" size="sm" @click="openFolder">
           <FolderOpen :size="13" />
@@ -162,12 +165,11 @@ onMounted(refresh)
           <PackageOpen :size="14" />
           <span class="text-sm">BepInEx</span>
           <BaseBadge v-if="bepInstalled" variant="success">
-            已安装{{ bepVersion ? ' · ' + bepVersion : '' }}
+            {{ t.home.bepInstalled }}{{ bepVersion ? ' · ' + bepVersion : '' }}
           </BaseBadge>
-          <BaseBadge v-else variant="danger">未安装</BaseBadge>
+          <BaseBadge v-else variant="danger">{{ t.home.bepNotInstalled }}</BaseBadge>
         </div>
         <div class="bep-bar__actions">
-          <!-- 配置文件入口移到这里 -->
           <BaseButton
             v-if="bepInstalled"
             variant="ghost"
@@ -175,7 +177,7 @@ onMounted(refresh)
             @click="router.push({ name: 'game-config', params: { id: gameId } })"
           >
             <SlidersHorizontal :size="13" />
-            配置文件
+            {{ t.mods.openConfig }}
           </BaseButton>
           <BaseButton
             v-if="!bepInstalled"
@@ -183,7 +185,7 @@ onMounted(refresh)
             @click="router.push({ name: 'bepinex-installer', params: { id: gameId } })"
           >
             <Download :size="13" />
-            安装 BepInEx
+            {{ t.mods.goInstall }}
           </BaseButton>
           <BaseButton
             v-else
@@ -191,7 +193,7 @@ onMounted(refresh)
             size="sm"
             @click="router.push({ name: 'bepinex-installer', params: { id: gameId } })"
           >
-            管理
+            {{ t.bepinex.title }}
           </BaseButton>
         </div>
       </div>
@@ -206,15 +208,13 @@ onMounted(refresh)
       <div class="mod-list">
         <div v-if="loadingMods" class="mod-empty">
           <Loader :size="18" class="text-muted spin" />
-          <span class="text-secondary text-sm">正在扫描...</span>
+          <span class="text-secondary text-sm">{{ t.common.loading }}</span>
         </div>
 
         <div v-else-if="gameMods.length === 0" class="mod-empty">
           <AlertCircle :size="18" class="text-muted" />
           <span class="text-secondary text-sm">
-            {{ bepInstalled
-              ? '暂无 Mod，将 Mod 文件夹或 .dll 放入 plugins 目录后刷新'
-              : '请先安装 BepInEx' }}
+            {{ bepInstalled ? t.mods.noModsHint : t.mods.bepNotInstalledHint }}
           </span>
         </div>
 

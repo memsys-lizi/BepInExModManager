@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useI18n } from '@/i18n'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
@@ -16,6 +17,8 @@ const route = useRoute()
 const gameStore = useGameStore()
 const settingsStore = useSettingsStore()
 const proxy = computed(() => settingsStore.settings.downloadProxy ?? '')
+
+const { t } = useI18n()
 
 const gameId = computed(() => route.params.id as string)
 const game = computed(() => gameStore.games.find(g => g.id === gameId.value))
@@ -127,7 +130,7 @@ onMounted(async () => {
         >
           <Loader v-if="loadingReleases" :size="13" class="spin" />
           <RefreshCw v-else :size="13" />
-          刷新
+          {{ t.bepinex.refreshList }}
         </BaseButton>
         <BaseButton
           size="sm"
@@ -136,7 +139,7 @@ onMounted(async () => {
           @click="install"
         >
           <Download :size="13" />
-          {{ installed ? '重新安装' : '安装' }}
+          {{ installed ? t.bepinex.reinstall : t.bepinex.install }}
         </BaseButton>
         <BaseButton
           v-if="installed"
@@ -146,7 +149,7 @@ onMounted(async () => {
           @click="uninstall"
         >
           <Trash2 :size="13" />
-          卸载
+          {{ t.bepinex.uninstall }}
         </BaseButton>
       </template>
     </AppTopBar>
@@ -169,26 +172,26 @@ onMounted(async () => {
       <div class="two-col">
         <!-- 左：当前状态 -->
         <div class="col-left">
-          <h3 class="section__title">当前状态</h3>
+          <h3 class="section__title">{{ t.bepinex.currentStatus }}</h3>
           <div class="status-card">
             <div class="status-card__row">
-              <span class="text-secondary text-sm">安装状态</span>
+              <span class="text-secondary text-sm">{{ t.bepinex.installed }}</span>
               <BaseBadge :variant="installed ? 'success' : 'danger'">
-                {{ installed ? '已安装' : '未安装' }}
+                {{ installed ? t.bepinex.installed : t.bepinex.notInstalled }}
               </BaseBadge>
             </div>
             <div v-if="installed" class="status-card__row">
-              <span class="text-secondary text-sm">当前版本</span>
-              <span class="text-sm font-mono">{{ installedVersion || '未知' }}</span>
+              <span class="text-secondary text-sm">{{ t.bepinex.version }}</span>
+              <span class="text-sm font-mono">{{ installedVersion || t.common.unknown }}</span>
             </div>
             <div class="status-card__row">
-              <span class="text-secondary text-sm">游戏目录</span>
+              <span class="text-secondary text-sm">{{ t.bepinex.gameDir }}</span>
               <span class="text-xs text-muted truncate" style="max-width:180px">{{ game?.path }}</span>
             </div>
 
             <!-- 完整性检查 -->
             <div v-if="integrity" class="status-card__row status-card__row--integrity">
-              <span class="text-secondary text-sm">完整性</span>
+              <span class="text-secondary text-sm">{{ t.bepinex.integrity }}</span>
               <div class="integrity-grid">
                 <div
                   v-for="item in integrityItems"
@@ -198,11 +201,11 @@ onMounted(async () => {
                 >
                   <span class="integrity-item__dot" />
                   <span class="integrity-item__label">{{ item.label }}</span>
-                  <span v-if="!item.required" class="integrity-item__tag">可选</span>
+                  <span v-if="!item.required" class="integrity-item__tag">{{ t.common.unknown }}</span>
                 </div>
                 <div class="integrity-score">
                   {{ integrity.score }} / 5
-                  <span class="text-xs text-muted">（≥4 已安装）</span>
+                  <span class="text-xs text-muted">{{ t.bepinex.integrityDesc }}</span>
                 </div>
               </div>
             </div>
@@ -216,20 +219,17 @@ onMounted(async () => {
 
         <!-- 右：版本列表 -->
         <div class="col-right">
-          <h3 class="section__title">选择版本</h3>
-          <p class="release-hint">
-            大多数游戏选 <strong>x64</strong>；若游戏为 32 位进程则选 <strong>x86</strong>。
-            不确定时优先选 x64。
-          </p>
+          <h3 class="section__title">{{ t.bepinex.selectVersion }}</h3>
+          <p class="release-hint">{{ t.bepinex.versionHint }}</p>
 
           <div v-if="loadingReleases" class="releases-loading">
             <Loader :size="16" class="spin text-muted" />
-            <span class="text-sm text-muted">正在获取...</span>
+            <span class="text-sm text-muted">{{ t.bepinex.fetching }}</span>
           </div>
 
           <div v-else-if="releases.length === 0" class="releases-loading">
             <AlertCircle :size="16" class="text-muted" />
-            <span class="text-sm text-muted">获取失败，请检查网络或在设置中配置代理</span>
+            <span class="text-sm text-muted">{{ t.bepinex.fetchFailed }}</span>
           </div>
 
           <div v-else class="release-list">

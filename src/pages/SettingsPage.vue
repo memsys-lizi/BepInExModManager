@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSettingsStore } from '@/store/settingsStore'
+import { useSettingsStore, type ThemeMode } from '@/store/settingsStore'
+import { useI18n } from '@/i18n'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseToggle from '@/components/ui/BaseToggle.vue'
 import { RotateCcw } from 'lucide-vue-next'
 
 const settingsStore = useSettingsStore()
 const { settings } = storeToRefs(settingsStore)
+const { t } = useI18n()
+
+const themeValue = computed({
+  get: () => settingsStore.settings.themeMode,
+  set: (v: string) => settingsStore.setThemeMode(v as ThemeMode),
+})
 </script>
 
 <template>
@@ -16,7 +23,7 @@ const { settings } = storeToRefs(settingsStore)
       <template #actions>
         <BaseButton variant="ghost" size="sm" @click="settingsStore.reset">
           <RotateCcw :size="13" />
-          恢复默认
+          {{ t.settings.reset }}
         </BaseButton>
       </template>
     </AppTopBar>
@@ -24,27 +31,26 @@ const { settings } = storeToRefs(settingsStore)
     <div class="page__body">
       <!-- Download -->
       <section class="section">
-        <div class="section__title">下载</div>
+        <div class="section__title">{{ t.settings.download }}</div>
         <div class="settings-table">
           <div class="settings-row">
             <div class="settings-row__label">
-              <span>BepInEx 下载源</span>
-              <span class="text-xs text-muted">影响安装时的下载速度</span>
+              <span>{{ t.settings.source }}</span>
+              <span class="text-xs text-muted">{{ t.settings.sourceDesc }}</span>
             </div>
             <select v-model="settings.bepinexSource" class="settings-select">
-              <option value="github">GitHub（官方）</option>
-              <option value="mirror">镜像源</option>
+              <option value="github">{{ t.settings.sourceGithub }}</option>
+              <option value="mirror">{{ t.settings.sourceMirror }}</option>
             </select>
           </div>
           <div class="settings-row">
             <div class="settings-row__label">
-              <span>HTTP 代理</span>
-              <span class="text-xs text-muted">例如 http://127.0.0.1:7890</span>
+              <span>{{ t.settings.proxy }}</span>
             </div>
             <input
               v-model="settings.downloadProxy"
               class="settings-input"
-              placeholder="留空则不使用代理"
+              :placeholder="t.settings.proxyPlaceholder"
             />
           </div>
         </div>
@@ -52,15 +58,25 @@ const { settings } = storeToRefs(settingsStore)
 
       <!-- General -->
       <section class="section">
-        <div class="section__title">通用</div>
+        <div class="section__title">{{ t.settings.general }}</div>
         <div class="settings-table">
           <div class="settings-row">
             <div class="settings-row__label">
-              <span>界面语言</span>
+              <span>{{ t.settings.language }}</span>
             </div>
             <select v-model="settings.language" class="settings-select">
               <option value="zh-CN">简体中文</option>
               <option value="en-US">English</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row__label">
+              <span>{{ t.sidebar.theme }}</span>
+            </div>
+            <select v-model="themeValue" class="settings-select">
+              <option value="system">{{ t.sidebar.themeSystem }}</option>
+              <option value="light">{{ t.sidebar.themeLight }}</option>
+              <option value="dark">{{ t.sidebar.themeDark }}</option>
             </select>
           </div>
         </div>
@@ -68,14 +84,14 @@ const { settings } = storeToRefs(settingsStore)
 
       <!-- About -->
       <section class="section">
-        <div class="section__title">关于</div>
+        <div class="section__title">{{ t.settings.about }}</div>
         <div class="settings-table">
           <div class="settings-row">
             <span class="text-secondary text-sm">BepInEx Mod Manager</span>
             <span class="text-muted text-sm">v0.1.0</span>
           </div>
           <div class="settings-row">
-            <span class="text-secondary text-sm">技术栈</span>
+            <span class="text-secondary text-sm">{{ t.settings.stack }}</span>
             <span class="text-muted text-sm">Tauri 2 · Vue 3 · Rust</span>
           </div>
         </div>
@@ -135,6 +151,15 @@ const { settings } = storeToRefs(settingsStore)
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
-  width: 180px;
+  width: 200px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+}
+.settings-select:focus,
+.settings-input:focus {
+  outline: none;
+  border-color: var(--color-border-2);
 }
 </style>

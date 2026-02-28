@@ -2,11 +2,13 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
+import { useI18n } from '@/i18n'
 import { ChevronRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { t } = useI18n()
 
 interface Crumb {
   label: string
@@ -19,18 +21,18 @@ const breadcrumbs = computed((): Crumb[] => {
   const game = gameStore.games.find(g => g.id === (route.params.id as string))
 
   if (name === 'home') {
-    crumbs.push({ label: '首页' })
+    crumbs.push({ label: t.value.sidebar.home })
   } else if (name === 'settings') {
-    crumbs.push({ label: '设置' })
+    crumbs.push({ label: t.value.settings.title })
   } else if (game) {
     crumbs.push({
       label: game.name,
       to: { name: 'game-detail', params: { id: game.id } },
     })
     if (name === 'bepinex-installer') {
-      crumbs.push({ label: 'BepInEx' })
+      crumbs.push({ label: t.value.bepinex.title })
     } else if (name === 'game-config') {
-      crumbs.push({ label: '配置文件' })
+      crumbs.push({ label: t.value.config.title })
     }
   }
 

@@ -1,51 +1,20 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { useSettingsStore } from '@/store/settingsStore'
-import { Sun, Moon, Monitor, Minus, Square, X, PackageOpen } from 'lucide-vue-next'
-import type { ThemeMode } from '@/store/settingsStore'
+import { Minus, Square, X, PackageOpen } from 'lucide-vue-next'
 
 const appWindow = getCurrentWindow()
-const settingsStore = useSettingsStore()
 
 const isMaximized = ref(false)
 
-// 初始化最大化状态
 appWindow.isMaximized().then(v => { isMaximized.value = v })
 appWindow.onResized(() => {
   appWindow.isMaximized().then(v => { isMaximized.value = v })
 })
 
-async function minimize() {
-  await appWindow.minimize()
-}
-
-async function toggleMaximize() {
-  await appWindow.toggleMaximize()
-}
-
-async function close() {
-  await appWindow.close()
-}
-
-// 主题图标映射
-const themeMode = computed(() => settingsStore.settings.themeMode)
-
-const themeIcon = computed(() => {
-  if (themeMode.value === 'light') return Sun
-  if (themeMode.value === 'dark') return Moon
-  return Monitor
-})
-
-const themeLabel = computed(() => {
-  if (themeMode.value === 'light') return '浅色'
-  if (themeMode.value === 'dark') return '深色'
-  return '跟随系统'
-})
-
-function cycleTheme() {
-  settingsStore.cycleTheme()
-}
+async function minimize() { await appWindow.minimize() }
+async function toggleMaximize() { await appWindow.toggleMaximize() }
+async function close() { await appWindow.close() }
 </script>
 
 <template>
@@ -56,20 +25,8 @@ function cycleTheme() {
       <span class="titlebar__title" data-tauri-drag-region>BepInEx Mod Manager</span>
     </div>
 
-    <!-- Right: theme toggle + window controls -->
+    <!-- Right: window controls -->
     <div class="titlebar__right">
-      <!-- Theme cycle button -->
-      <button
-        class="titlebar__btn titlebar__btn--theme"
-        :title="themeLabel"
-        @click="cycleTheme"
-      >
-        <component :is="themeIcon" :size="12" />
-        <span class="titlebar__theme-label">{{ themeLabel }}</span>
-      </button>
-
-      <div class="titlebar__divider" />
-
       <!-- Minimize -->
       <button class="titlebar__btn" title="最小化" @click="minimize">
         <Minus :size="13" />
@@ -139,14 +96,6 @@ function cycleTheme() {
   height: 100%;
 }
 
-.titlebar__divider {
-  width: 1px;
-  height: 16px;
-  background: var(--color-border);
-  margin: 0 2px;
-  -webkit-app-region: no-drag;
-}
-
 /* Window control buttons */
 .titlebar__btn {
   display: flex;
@@ -164,24 +113,6 @@ function cycleTheme() {
 .titlebar__btn:hover {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
-}
-
-/* Theme button - wider to fit text */
-.titlebar__btn--theme {
-  width: auto;
-  padding: 0 10px;
-  gap: 5px;
-  border-radius: var(--radius-sm);
-  margin-right: 4px;
-}
-
-.titlebar__btn--theme:hover {
-  background: var(--color-accent-dim);
-}
-
-.titlebar__theme-label {
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 /* Close button - red on hover */
