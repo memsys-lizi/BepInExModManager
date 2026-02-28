@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
@@ -6,7 +6,6 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useI18n } from '@/i18n'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
 import { Download, Trash2, RefreshCw, Loader, AlertCircle } from 'lucide-vue-next'
 import {
   checkBepInExStatus, fetchBepInExReleases, installBepInEx, uninstallBepInEx,
@@ -176,9 +175,10 @@ onMounted(async () => {
           <div class="status-card">
             <div class="status-card__row">
               <span class="text-secondary text-sm">{{ t.bepinex.installed }}</span>
-              <BaseBadge :variant="installed ? 'success' : 'danger'">
+              <span class="install-status" :class="installed ? 'install-status--ok' : 'install-status--err'">
+                <span class="install-status__dot" />
                 {{ installed ? t.bepinex.installed : t.bepinex.notInstalled }}
-              </BaseBadge>
+              </span>
             </div>
             <div v-if="installed" class="status-card__row">
               <span class="text-secondary text-sm">{{ t.bepinex.version }}</span>
@@ -242,7 +242,7 @@ onMounted(async () => {
             >
               <div class="release-item__left">
                 <span class="release-item__ver">{{ r.version }}</span>
-                <BaseBadge variant="muted">{{ r.arch }}</BaseBadge>
+                <span class="arch-tag">{{ r.arch }}</span>
               </div>
               <span class="text-xs text-muted">{{ r.published_at }}</span>
             </button>
@@ -332,6 +332,23 @@ onMounted(async () => {
 }
 .status-card__row:last-child { border-bottom: none; }
 .status-card__row--integrity { align-items: flex-start; flex-wrap: wrap; gap: var(--space-2); }
+
+.install-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+}
+.install-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.install-status--ok  .install-status__dot { background: var(--color-success); }
+.install-status--ok  { color: var(--color-text-secondary); }
+.install-status--err .install-status__dot { background: var(--color-danger); }
+.install-status--err { color: var(--color-danger); }
 
 .integrity-grid {
   display: flex;
@@ -427,6 +444,14 @@ onMounted(async () => {
 
 .release-item__left { display: flex; align-items: center; gap: var(--space-2); }
 .release-item__ver { font-size: var(--text-sm); font-weight: 500; font-family: var(--font-mono); }
+.arch-tag {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+}
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

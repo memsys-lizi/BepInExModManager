@@ -6,7 +6,6 @@ import { useModStore } from '@/store/modStore'
 import { useI18n } from '@/i18n'
 import AppTopBar from '@/components/layout/AppTopBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
 import BaseToggle from '@/components/ui/BaseToggle.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import {
@@ -281,9 +280,9 @@ onMounted(refresh)
               >
                 <File :size="11" class="dll-item__icon" />
                 <span class="dll-item__name truncate text-xs">{{ dll.fileName }}</span>
-                <BaseBadge :variant="dll.status === 'enabled' ? 'success' : 'muted'" >
+                <span class="dll-status" :class="dll.status === 'enabled' ? 'dll-status--on' : 'dll-status--off'">
                   {{ dll.status === 'enabled' ? '启用' : '禁用' }}
-                </BaseBadge>
+                </span>
               </div>
             </div>
           </div>
@@ -473,6 +472,12 @@ onMounted(refresh)
 .dll-item--disabled { opacity: 0.5; }
 .dll-item__icon { color: var(--color-text-muted); flex-shrink: 0; }
 .dll-item__name { flex: 1; color: var(--color-text-secondary); }
+.dll-status {
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+.dll-status--on  { color: var(--color-success); }
+.dll-status--off { color: var(--color-text-muted); }
 
 /* Spin */
 .spin { animation: spin 1s linear infinite; }
