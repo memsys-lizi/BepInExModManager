@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const tabs = [
@@ -11,6 +11,8 @@ const tabs = [
 ]
 
 const active = ref(0)
+
+const current = computed(() => tabs[active.value]!)
 
 function prev() { active.value = (active.value - 1 + tabs.length) % tabs.length }
 function next() { active.value = (active.value + 1) % tabs.length }
@@ -52,9 +54,9 @@ function next() { active.value = (active.value + 1) % tabs.length }
           <div class="screenshots__img-wrap">
             <transition name="fade" mode="out-in">
               <img
-                :key="tabs[active].id"
-                :src="tabs[active].src"
-                :alt="tabs[active].label"
+                :key="current.id"
+                :src="current.src"
+                :alt="current.label"
                 class="screenshots__img"
               />
             </transition>
