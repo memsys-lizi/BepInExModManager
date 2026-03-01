@@ -131,7 +131,7 @@
 ### 克隆与安装依赖
 
 ```bash
-git clone https://github.com/your-name/BepInExModManager.git
+git clone https://github.com/memsys-lizi/BepInExModManager.git
 cd BepInExModManager
 pnpm install
 ```
